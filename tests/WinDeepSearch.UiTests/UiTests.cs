@@ -442,7 +442,7 @@ public sealed class UiTests : IDisposable
     AutomationElement WaitForToolTip()
     {
         // WPF shows a tooltip in its own popup window, so it sits a level below the desktop.
-        var tip = Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10)).Result;
+        var tip = Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10), ignoreException: true).Result;
         if (tip == null) ShotScreen("tooltip-missing");
         Assert.NotNull(tip);
         return tip;
