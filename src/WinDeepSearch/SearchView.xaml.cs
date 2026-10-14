@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -439,7 +440,32 @@ public partial class SearchView : UserControl
 
 static class Shell
 {
-    /// <summary>Opens a new File Explorer window on the file's folder with the file selected.</summary>
-    public static void ShowInExplorer(string path) =>
-        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+    /// <summary>
+    /// Shows the file selected in a File Explorer window on its folder. "explorer /select" does not reliably
+    /// select the file on current Windows builds; this is the Shell function made for it.
+    /// </summary>
+    public static void ShowInExplorer(string path)
+    {
+        if (SHParseDisplayName(path, 0, out nint item, 0, out _) != 0)
+        {
+            // The file is gone (an old result from History): open its folder instead.
+            Process.Start(new ProcessStartInfo("explorer.exe", $"\"{Path.GetDirectoryName(path)}\"") { UseShellExecute = true });
+            return;
+        }
+        try
+        {
+            SHOpenFolderAndSelectItems(item, 0, 0, 0);
+        }
+        finally
+        {
+            Marshal.FreeCoTaskMem(item);
+        }
+    }
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHParseDisplayName(string name, nint bindContext, out nint item, uint attributesIn, out uint attributesOut);
+
+    // With no child items, the item itself is selected inside its parent folder.
+    [DllImport("shell32.dll")]
+    static extern int SHOpenFolderAndSelectItems(nint folder, uint count, nint items, uint flags);
 }
