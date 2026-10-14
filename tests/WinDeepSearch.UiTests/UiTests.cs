@@ -113,7 +113,7 @@ public sealed class UiTests : IDisposable
         Assert.False(justThisFile.IsChecked);
 
         justThisFile.IsChecked = true;
-        Search(window, "Invoice", regex: false);
+        Search(window, "Invoice", regex: false, pressEnter: true);
 
         var names = ResultNames(window);
         Assert.Contains("billing.log · 7 matches", names);
@@ -377,12 +377,25 @@ public sealed class UiTests : IDisposable
         return window;
     }
 
-    void Search(Window window, string text, bool regex, bool waitForFinish = true)
+    void Search(Window window, string text, bool regex, bool waitForFinish = true, bool pressEnter = false)
     {
-        window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox().Text = text;
         var toggle = window.FindFirstDescendant(cf => cf.ByAutomationId("RegexToggle")).AsToggleButton();
         if ((toggle.ToggleState == ToggleState.On) != regex) toggle.Toggle();
-        window.FindFirstDescendant(cf => cf.ByAutomationId("SearchButton")).AsButton().Invoke();
+        var query = window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox();
+        if (pressEnter)
+        {
+            // Typed and started with Enter, the way people use it.
+            query.Text = "";
+            query.Focus();
+            Keyboard.Type(text);
+            Assert.Equal("Ready · press Enter to search", window.FindFirstDescendant(cf => cf.ByAutomationId("StatusText")).Name);
+            Keyboard.Press(VirtualKeyShort.ENTER);
+        }
+        else
+        {
+            query.Text = text;
+            window.FindFirstDescendant(cf => cf.ByAutomationId("SearchButton")).AsButton().Invoke();
+        }
         if (waitForFinish) WaitForFinish(window);
     }
 
