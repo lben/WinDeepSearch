@@ -331,7 +331,6 @@ public sealed class UiTests : IDisposable
         }
         catch
         {
-            // This test has timed out once in CI without a picture of the step that failed.
             ShotScreen("explorer-menu-failure");
             throw;
         }
@@ -449,9 +448,10 @@ public sealed class UiTests : IDisposable
         return tip;
     }
 
+    // A closed classic menu can stay in the tree, hidden; clicking its item before the new menu shows does nothing.
     static AutomationElement WaitForMenuItem(AutomationElement within, string name = "WinDeepSearch") =>
-        Retry.WhileNull(() => within.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName(name))),
-            TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+        Retry.WhileNull(() => within.FindAllDescendants(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName(name))).FirstOrDefault(e => !e.IsOffscreen),
+            TimeSpan.FromSeconds(20), throwOnTimeout: true, ignoreException: true).Result;
 
     // The title is the folder name, followed by " - File Explorer" on some Windows versions.
     Window? ExplorerWindow(string folder) =>
