@@ -313,8 +313,10 @@ public sealed class UiTests : IDisposable
         Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("WinDeepSearch"))),
             TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
 
-    Window? ExplorerWindow(string title) =>
-        _automation.GetDesktop().FindFirstChild(cf => cf.ByClassName("CabinetWClass").And(cf.ByName(title)))?.AsWindow();
+    // The title is the folder name, followed by " - File Explorer" on some Windows versions.
+    Window? ExplorerWindow(string folder) =>
+        _automation.GetDesktop().FindAllChildren(cf => cf.ByClassName("CabinetWClass"))
+            .FirstOrDefault(w => w.Name == folder || w.Name.StartsWith(folder + " - "))?.AsWindow();
 
     Window? SearchWindowTitled(string title) =>
         _automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.Window).And(cf.ByName(title)))?.AsWindow();
