@@ -38,7 +38,7 @@ internal static class TextFiles
             string window = string.Concat(carry, buffer.AsSpan(0, read));
             int acceptTo = end ? window.Length : window.Length - LookaheadChars;
 
-            matcher.Search(window, acceptFrom, acceptTo, new TextSegment { Text = window, Locate = LineLabel, FirstLine = firstLine }, result);
+            int lastEnd = matcher.Search(window, acceptFrom, acceptTo, new TextSegment { Text = window, Locate = LineLabel, FirstLine = firstLine }, result);
             if (stream.Length > 0) active.Progress = Math.Min(1, stream.Position / (double)stream.Length);
             if (end) return;
 
@@ -47,7 +47,8 @@ internal static class TextFiles
             if (keepFrom < acceptTo - 4 * LookbehindChars) keepFrom = acceptTo - LookbehindChars;
             firstLine += window.AsSpan(0, keepFrom).Count('\n');
             carry = window[keepFrom..];
-            acceptFrom = acceptTo - keepFrom;
+            // A match that ran past acceptTo was already counted; the next window starts after it.
+            acceptFrom = Math.Max(acceptTo, lastEnd) - keepFrom;
         }
     }
 

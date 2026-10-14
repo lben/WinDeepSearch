@@ -9,7 +9,7 @@ internal static class Files
     public static FileStream OpenRead(string path) =>
         new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, FileOptions.SequentialScan);
 
-    /// <summary>True for cloud files (OneDrive and similar) whose content isn't on this PC; reading them would download them.</summary>
+    /// <summary>True for cloud files (OneDrive and similar) whose content isn't on this PC.</summary>
     public static bool IsOnlineOnly(FileAttributes attributes) =>
         (attributes & (FileAttributes.Offline | RecallOnOpen | RecallOnDataAccess)) != 0;
 }

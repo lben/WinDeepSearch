@@ -11,10 +11,8 @@ public static class Content
     static readonly HashSet<string> FilterExtensions = [".doc", ".dot", ".xls", ".xlt", ".ppt", ".pot", ".pps", ".rtf"];
     static readonly HashSet<string> ImageExtensions = [".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".heic", ".heif"];
 
-    internal static void Search(string path, FileAttributes attributes, Matcher matcher, ImageText? images, ActiveFile active, FileResult result, CancellationToken ct)
+    internal static void Search(string path, Matcher matcher, ImageText? images, ActiveFile active, FileResult result, CancellationToken ct)
     {
-        if (Files.IsOnlineOnly(attributes)) return;
-
         string ext = Path.GetExtension(path).ToLowerInvariant();
         IEnumerable<TextSegment>? segments =
             ext == ".pdf" ? Pdf(path, images, active, ct)

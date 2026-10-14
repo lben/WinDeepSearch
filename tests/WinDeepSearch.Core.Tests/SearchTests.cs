@@ -113,6 +113,8 @@ public sealed class SearchTests : IDisposable
         for (int i = 1; i <= lines; i++)
         {
             string line = markers.Contains(i) ? $"MARKER-{i}" : $"filler {i}";
+            // On the boundary line a run of Q's crosses the exact point where the first chunk stops accepting matches.
+            if (i == boundaryLine) line = line.PadRight(60, '.') + new string('Q', 25);
             builder.Append(line.PadRight(lineLength - 1, '.')).Append('\n');
         }
         Write("big.log", builder.ToString());
@@ -121,12 +123,17 @@ public sealed class SearchTests : IDisposable
         Assert.Equal(markers.Count, result.MatchCount);
         Assert.Equal(markers.Select(m => $"MARKER-{m}"), result.Hits.SelectMany(Matched));
         Assert.Equal(markers, result.Hits.Select(h => h.Context[h.HitLine].Number));
+
+        var crossing = Single(await Search("Q+", regex: true), "big.log");
+        Assert.Equal(1, crossing.MatchCount);
+        Assert.Equal([new string('Q', 25)], crossing.Hits.SelectMany(Matched));
+        Assert.Equal(boundaryLine, crossing.Hits[0].Context[crossing.Hits[0].HitLine].Number);
     }
 
     [Fact]
     public async Task ReadsWordExcelPowerPointAndOpenDocumentFiles()
     {
-        Fixtures.Docx(PathOf("letter.docx"), ["Dear customer,", "Please pay Invo|ice #2041 by Friday.", "Thanks"]);
+        Fixtures.Docx(PathOf("letter.docx"), ["Dear customer,", "Please pay Invo|ice #2041 by Friday.", "Thanks"], textBox: "Boxed note about Invoice #2041");
         Fixtures.Xlsx(PathOf("budget.xlsx"), "Receivables", new()
         {
             [1] = ["Customer", "Reference", "Amount"],
@@ -137,8 +144,12 @@ public sealed class SearchTests : IDisposable
 
         var results = await Search(@"Invoice\s+#2041", regex: true);
 
-        Assert.Equal(["Paragraph 2"], Single(results, "letter.docx").Hits.Select(h => h.Location));
-        Assert.Equal("Please pay Invoice #2041 by Friday.", HitText(Single(results, "letter.docx").Hits[0]));
+        // The text box is counted once although Word stores it twice.
+        var letter = Single(results, "letter.docx");
+        Assert.Equal(2, letter.MatchCount);
+        Assert.Equal(["Paragraph 2", "Paragraph 5"], letter.Hits.Select(h => h.Location));
+        Assert.Equal("Please pay Invoice #2041 by Friday.", HitText(letter.Hits[0]));
+        Assert.Equal("Boxed note about Invoice #2041", HitText(letter.Hits[1]));
 
         var sheet = Single(results, "budget.xlsx").Hits.Single();
         Assert.Equal("Receivables · row 18", sheet.Location);
@@ -149,16 +160,22 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
-    public async Task ReadsOlderFormatsThroughTheWindowsFilters()
+    public async Task ReadsOlderOfficeFormatsThroughTheWindowsFilters()
     {
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows search filters (IFilter) only exist on Windows.");
-        Write("old.rtf", @"{\rtf1\ansi{\fonttbl\f0\fswiss Helvetica;}\f0\pard First paragraph\par Second has Invoice #2041 in it\par}");
+        foreach (var file in Directory.GetFiles(Path.Combine(AppContext.BaseDirectory, "Legacy")))
+            if (!file.EndsWith(".txt")) File.Copy(file, PathOf(Path.GetFileName(file)));
+        // RTF has the same problem as the binary formats: read raw, its accents and formatting split the words.
+        Write("old.rtf", @"{\rtf1\ansi{\fonttbl\f0\fswiss Helvetica;}\f0\pard First paragraph\par Second has caf\'e9 cr\'e8me in it\par}");
 
-        // Read as plain text the RTF markup would match too, labelled "Line 1"; the filter yields paragraphs.
-        var hit = Single(await Search("Invoice #2041"), "old.rtf").Hits.Single();
-        Assert.StartsWith("Paragraph ", hit.Location);
-        Assert.Contains("Second has Invoice #2041 in it", HitText(hit));
-        Assert.DoesNotContain(@"\par", HitText(hit));
+        var results = await Search("after text|replaceMe|This is on page 1|café crème", regex: true);
+
+        foreach (var (name, text) in new[] { ("hyperlink.doc", "after text"), ("Simple.xls", "replaceMe"), ("basic_test_ppt_file.ppt", "This is on page 1"), ("old.rtf", "café crème") })
+        {
+            var hit = Single(results, name).Hits[0];
+            Assert.StartsWith("Paragraph ", hit.Location);
+            Assert.Contains(text, HitText(hit));
+        }
     }
 
     [Fact]
@@ -234,6 +251,41 @@ public sealed class SearchTests : IDisposable
 
         var withNodeModules = await Search("invoice", settings: new Settings { IgnoredFolders = [] });
         Assert.Equal(3, withNodeModules.Count);
+
+        // A full path skips only that folder.
+        var withoutSrc = await Search("invoice", settings: new Settings { IgnoredFolders = [Path.Combine(_dir, "src")] });
+        Assert.Equal(["Invoice 2041.txt", "index.js"], withoutSrc.Select(r => Path.GetFileName(r.Path)).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task OnlineOnlyCloudFilesAreReportedInsteadOfDownloaded()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Cloud-file attributes are Windows file attributes.");
+        string cloud = Write("cloud.txt", "needle");
+        File.SetAttributes(cloud, FileAttributes.Offline);
+
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(engine.Results);
+        var skipped = Assert.Single(engine.Skipped);
+        Assert.Equal(cloud, skipped.Path);
+        Assert.Equal("Online-only file, not downloaded", skipped.Reason);
+    }
+
+    [Fact]
+    public void SettingsAreKeptBetweenRuns()
+    {
+        string file = Path.Combine(_dir, "settings.json");
+        var defaults = Settings.Load(file);
+        Assert.True(defaults.ReadImages);
+        Assert.Equal(3, defaults.ContextLines);
+        Assert.Contains("node_modules", defaults.IgnoredFolders);
+
+        new Settings { IgnoredFolders = ["build"], ContextLines = 5, HistoryLimit = 20, UseRegex = true, MatchCase = true, ReadImages = false }.Save(file);
+        var loaded = Settings.Load(file);
+        Assert.Equal(["build"], loaded.IgnoredFolders);
+        Assert.Equal((5, 20, true, true, false), (loaded.ContextLines, loaded.HistoryLimit, loaded.UseRegex, loaded.MatchCase, loaded.ReadImages));
     }
 
     [Fact]

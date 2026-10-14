@@ -197,7 +197,13 @@ public sealed class UiTests : IDisposable
     public void ExplorerRightClickMenusOpenASearchWindow()
     {
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_dir}\"") { UseShellExecute = true });
-        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30)).Result;
+        if (explorer == null)
+        {
+            ShotScreen("explorer-missing");
+            var titles = _automation.GetDesktop().FindAllChildren().Select(w => $"{w.ClassName}: {w.Name}");
+            Assert.Fail("No Explorer window for Acme. Top-level windows: " + string.Join(" | ", titles));
+        }
         try
         {
             // Explorer hides known extensions by default, so the item may be called "billing".
@@ -285,12 +291,14 @@ public sealed class UiTests : IDisposable
         Retry.WhileFalse(() => status.Name.StartsWith("Finished"), TimeSpan.FromMinutes(5), TimeSpan.FromMilliseconds(250), throwOnTimeout: true);
     }
 
+    // While rows are being inserted, WPF briefly rebuilds the list's accessibility tree, so lookups retry.
     static List<string> ResultNames(Window window) =>
-        window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.Select(i => i.Name).ToList();
+        Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.Select(i => i.Name).ToList(),
+            TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true).Result;
 
     static ListBoxItem Item(Window window, string prefix) =>
         Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.FirstOrDefault(i => i.Name.StartsWith(prefix)),
-            TimeSpan.FromSeconds(10), throwOnTimeout: true).Result!;
+            TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true).Result;
 
     AutomationElement WaitForToolTip()
     {

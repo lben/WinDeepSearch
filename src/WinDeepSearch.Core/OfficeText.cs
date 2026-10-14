@@ -13,6 +13,7 @@ internal static class OfficeText
     const string S = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
     const string P = "http://schemas.openxmlformats.org/presentationml/2006/main";
     const string V = "urn:schemas-microsoft-com:vml";
+    const string MarkupCompatibility = "http://schemas.openxmlformats.org/markup-compatibility/2006";
     const int LinesPerSegment = 5000;
 
     static readonly XmlReaderSettings Settings = new() { DtdProcessing = DtdProcessing.Prohibit, IgnoreComments = true };
@@ -180,6 +181,13 @@ internal static class OfficeText
         bool inText = false;
         while (reader.Read())
         {
+            // Office saves text boxes and shapes twice, a modern copy and a fallback for old readers; read one.
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Fallback" && reader.NamespaceURI == MarkupCompatibility)
+            {
+                reader.Skip();
+                if (reader.EOF) break;
+            }
+
             switch (reader.NodeType)
             {
                 // Checked first: in slides and drawings the picture shares the paragraphs' namespace.

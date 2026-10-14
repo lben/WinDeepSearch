@@ -40,8 +40,8 @@ internal static class FilterText
             {
                 ct.ThrowIfCancellationRequested();
                 hr = filter.GetChunk(out var chunk);
-                if (hr == FILTER_E_END_OF_CHUNKS) break;
-                if (hr < 0) continue; // An embedded object or link that can't be read; keep going.
+                if (hr is FILTER_E_EMBEDDING_UNAVAILABLE or FILTER_E_LINK_UNAVAILABLE) continue; // Skip that object, keep reading.
+                if (hr < 0) break; // The end, or an error the filter won't recover from: keep what was read.
                 if ((chunk.Flags & CHUNK_TEXT) == 0) continue;
                 if (chunk.BreakType != 0 && text.Length > 0) text.Append('\n');
 
@@ -63,7 +63,8 @@ internal static class FilterText
         }
     }
 
-    const int FILTER_E_END_OF_CHUNKS = unchecked((int)0x80041700);
+    const int FILTER_E_EMBEDDING_UNAVAILABLE = unchecked((int)0x80041707);
+    const int FILTER_E_LINK_UNAVAILABLE = unchecked((int)0x80041708);
     const int FILTER_S_LAST_TEXT = 0x00041709;
     const int CHUNK_TEXT = 1;
 

@@ -16,4 +16,8 @@
     <ProjectReference Include="..\..\src\WinDeepSearch.Core\WinDeepSearch.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Legacy\*.*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

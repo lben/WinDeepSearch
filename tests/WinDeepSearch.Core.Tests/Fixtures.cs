@@ -31,10 +31,19 @@ public static class Fixtures
         return data.ToArray();
     }
 
-    public static void Docx(string path, string[] paragraphs, byte[]? picture = null)
+    public static void Docx(string path, string[] paragraphs, byte[]? picture = null, string? textBox = null)
     {
         var body = new StringBuilder();
         foreach (var p in paragraphs) body.Append(Paragraph(p));
+        if (textBox != null)
+        {
+            // Saved the way Word 2010 and later save a text box: a modern copy and a fallback copy for old readers.
+            string content = $"<w:txbxContent>{Paragraph(textBox)}</w:txbxContent>";
+            body.Append("<w:p><w:r><mc:AlternateContent>" +
+                $"<mc:Choice Requires=\"wps\"><w:drawing><wps:wsp><wps:txbx>{content}</wps:txbx></wps:wsp></w:drawing></mc:Choice>" +
+                $"<mc:Fallback><w:pict><v:shape><v:textbox>{content}</v:textbox></v:shape></w:pict></mc:Fallback>" +
+                "</mc:AlternateContent></w:r></w:p>");
+        }
         if (picture != null)
             body.Append($"<w:p><w:r><w:drawing><a:graphic><a:graphicData uri=\"{Pic}\"><pic:pic><pic:blipFill><a:blip r:embed=\"rIdPic\"/></pic:blipFill></pic:pic></a:graphicData></a:graphic></w:drawing></w:r></w:p>");
 
@@ -42,7 +51,9 @@ public static class Fixtures
         {
             ("[Content_Types].xml", ContentTypes("/word/document.xml", "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml")),
             ("_rels/.rels", Rels(("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument", "word/document.xml"))),
-            ("word/document.xml", $"<w:document xmlns:w=\"{W}\" xmlns:r=\"{R}\" xmlns:a=\"{A}\" xmlns:pic=\"{Pic}\"><w:body>{body}</w:body></w:document>"),
+            ("word/document.xml", $"<w:document xmlns:w=\"{W}\" xmlns:r=\"{R}\" xmlns:a=\"{A}\" xmlns:pic=\"{Pic}\" " +
+                "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:v=\"urn:schemas-microsoft-com:vml\" " +
+                $"xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\"><w:body>{body}</w:body></w:document>"),
             ("word/_rels/document.xml.rels", Rels(("rIdPic", ImageRel, "media/image1.png"))),
         };
         if (picture != null) entries.Add(("word/media/image1.png", picture));

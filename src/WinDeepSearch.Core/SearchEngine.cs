@@ -175,7 +175,9 @@ public sealed class SearchEngine
         Active[path] = active;
         try
         {
-            Content.Search(path, attributes, _matcher, _images, active, result, skip.Token);
+            // Reading a cloud file that isn't on this PC would download it; report it instead.
+            if (Files.IsOnlineOnly(attributes)) Skipped.Enqueue(new SkippedFile(path, 0, "Online-only file, not downloaded"));
+            else Content.Search(path, _matcher, _images, active, result, skip.Token);
         }
         catch (OperationCanceledException) when (!searchToken.IsCancellationRequested)
         {

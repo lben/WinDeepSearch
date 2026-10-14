@@ -54,16 +54,18 @@ public sealed class Matcher
     /// Records matches that start in [acceptFrom, acceptTo). Text before acceptFrom is still visible to
     /// lookbehinds and context lines; text after acceptTo lets matches and context lines run past it.
     /// Line 0 of <paramref name="segment"/> is the line that starts at text[0].
+    /// Returns where the last recorded match ends (or acceptFrom), so the next window can start after it.
     /// </summary>
-    internal void Search(string text, int acceptFrom, int acceptTo, TextSegment segment, FileResult result)
+    internal int Search(string text, int acceptFrom, int acceptTo, TextSegment segment, FileResult result)
     {
-        int lineIndex = 0, counted = 0;
+        int lineIndex = 0, counted = 0, lastEnd = acceptFrom;
         int lineStart = -1, lineEnd = -1, hitLineIndex = 0;
         List<TextRange>? ranges = null;
 
         for (var m = _regex.Match(text, acceptFrom); m.Success && m.Index < acceptTo; m = m.NextMatch())
         {
             result.MatchCount++;
+            lastEnd = m.Index + m.Length;
             lineIndex += text.AsSpan(counted, m.Index - counted).Count('\n');
             counted = m.Index;
 
@@ -79,6 +81,7 @@ public sealed class Matcher
         }
 
         if (ranges != null) AddHit(text, lineStart, lineEnd, hitLineIndex, ranges, segment, result);
+        return lastEnd;
     }
 
     void AddHit(string text, int lineStart, int lineEnd, int lineIndex, List<TextRange> ranges, TextSegment segment, FileResult result)
