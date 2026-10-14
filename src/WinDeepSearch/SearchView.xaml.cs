@@ -440,11 +440,8 @@ public partial class SearchView : UserControl
 
 static class Shell
 {
-    /// <summary>
-    /// Shows the file selected in a File Explorer window on its folder. "explorer /select" does not reliably
-    /// select the file on current Windows builds; this is the Shell function made for it.
-    /// </summary>
-    public static void ShowInExplorer(string path)
+    /// <summary>Shows the file selected in a File Explorer window on its folder.</summary>
+    public static async void ShowInExplorer(string path)
     {
         if (SHParseDisplayName(path, 0, out nint item, 0, out _) != 0)
         {
@@ -459,6 +456,36 @@ static class Shell
         finally
         {
             Marshal.FreeCoTaskMem(item);
+        }
+        await SelectWhenLoaded(path);
+    }
+
+    /// <summary>
+    /// Some Windows builds open the folder but drop the selection when the window is new, so once the window
+    /// has loaded, ask it to select the file.
+    /// </summary>
+    static async Task SelectWhenLoaded(string path)
+    {
+        string folder = Path.GetDirectoryName(path)!, name = Path.GetFileName(path);
+        for (int attempt = 0; attempt < 20; attempt++)
+        {
+            await Task.Delay(150);
+            try
+            {
+                dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!)!;
+                foreach (dynamic window in shell.Windows())
+                {
+                    dynamic view = window.Document;
+                    if (!string.Equals((string)view.Folder.Self.Path, folder, StringComparison.OrdinalIgnoreCase)) continue;
+                    if ((int)view.SelectedItems().Count > 0) return;
+                    dynamic file = view.Folder.ParseName(name);
+                    if (file != null) view.SelectItem(file, 1 | 4 | 8 | 16); // select, deselect others, scroll to, focus
+                }
+            }
+            catch (Exception)
+            {
+                // A window that is still loading or not a folder view; try again shortly.
+            }
         }
     }
 
