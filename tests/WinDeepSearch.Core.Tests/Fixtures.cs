@@ -31,7 +31,8 @@ public static class Fixtures
         return data.ToArray();
     }
 
-    public static void Docx(string path, string[] paragraphs, byte[]? picture = null, string? textBox = null)
+    /// <summary>A Word document; <paramref name="strict"/> saves it the way Word's "Strict Open XML Document" does.</summary>
+    public static void Docx(string path, string[] paragraphs, byte[]? picture = null, string? textBox = null, bool strict = false)
     {
         var body = new StringBuilder();
         foreach (var p in paragraphs) body.Append(Paragraph(p));
@@ -51,7 +52,8 @@ public static class Fixtures
         {
             ("[Content_Types].xml", ContentTypes("/word/document.xml", "application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml")),
             ("_rels/.rels", Rels(("rId1", "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument", "word/document.xml"))),
-            ("word/document.xml", $"<w:document xmlns:w=\"{W}\" xmlns:r=\"{R}\" xmlns:a=\"{A}\" xmlns:pic=\"{Pic}\" " +
+            ("word/document.xml", $"<w:document xmlns:w=\"{(strict ? "http://purl.oclc.org/ooxml/wordprocessingml/main" : W)}\" " +
+                $"xmlns:r=\"{(strict ? "http://purl.oclc.org/ooxml/officeDocument/relationships" : R)}\" xmlns:a=\"{A}\" xmlns:pic=\"{Pic}\" " +
                 "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\" xmlns:v=\"urn:schemas-microsoft-com:vml\" " +
                 $"xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\"><w:body>{body}</w:body></w:document>"),
             ("word/_rels/document.xml.rels", Rels(("rIdPic", ImageRel, "media/image1.png"))),
@@ -170,9 +172,10 @@ public static class Fixtures
 
     /// <summary>
     /// A PDF whose first page has the given text lines and, when given, a second page holding the picture
-    /// (decoded from PNG) on part of the page.
+    /// (decoded from PNG) on part of the page. With <paramref name="hiddenText"/> the picture page also gets an
+    /// invisible text layer, the way scanners make a "searchable PDF".
     /// </summary>
-    public static void Pdf(string path, string[] lines, byte[]? picturePng = null)
+    public static void Pdf(string path, string[] lines, byte[]? picturePng = null, string[]? hiddenText = null)
     {
         var objects = new List<byte[]>();
         int Add(string body) { objects.Add(Encoding.Latin1.GetBytes(body)); return objects.Count; }
@@ -203,8 +206,15 @@ public static class Fixtures
             var rgb = Rgb(bitmap);
             int image = AddStream($"/Type /XObject /Subtype /Image /Width {bitmap.Width} /Height {bitmap.Height} /ColorSpace /DeviceRGB /BitsPerComponent 8", rgb);
             int width = 450, height = 450 * bitmap.Height / bitmap.Width;
-            int draw = AddStream("", Encoding.Latin1.GetBytes($"q {width} 0 0 {height} 72 400 cm /Im1 Do Q"));
-            kids.Add(Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im1 {image} 0 R >> >> /Contents {draw} 0 R >>"));
+            var draw = new StringBuilder($"q {width} 0 0 {height} 72 400 cm /Im1 Do Q\n");
+            if (hiddenText != null)
+            {
+                draw.Append("BT 3 Tr /F1 14 Tf 72 460 Td 18 TL\n"); // render mode 3: invisible
+                foreach (var line in hiddenText) draw.Append('(').Append(line).Append(") Tj T*\n");
+                draw.Append("ET");
+            }
+            int drawing = AddStream("", Encoding.Latin1.GetBytes(draw.ToString()));
+            kids.Add(Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /XObject << /Im1 {image} 0 R >> /Font << /F1 3 0 R >> >> /Contents {drawing} 0 R >>"));
         }
         objects[1] = Encoding.Latin1.GetBytes($"<< /Type /Pages /Kids [{string.Join(" ", kids.Select(k => $"{k} 0 R"))}] /Count {kids.Count} >>");
 

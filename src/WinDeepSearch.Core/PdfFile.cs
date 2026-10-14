@@ -67,7 +67,7 @@ internal sealed unsafe class PdfFile : IDisposable
             if (page == 0) return ("", []);
             try
             {
-                return (PageText(page), wantPictures ? Pictures(page) : []);
+                return (PageText(page), wantPictures && !HasInvisibleText(page) ? Pictures(page) : []);
             }
             finally
             {
@@ -124,6 +124,34 @@ internal sealed unsafe class PdfFile : IDisposable
         finally
         {
             FPDFText_ClosePage(textPage);
+        }
+    }
+
+    /// <summary>
+    /// A searchable scan already carries the recognised text as an invisible layer over its picture; reading the
+    /// picture again would count every match twice.
+    /// </summary>
+    static bool HasInvisibleText(nint page)
+    {
+        int count = FPDFPage_CountObjects(page);
+        for (int i = 0; i < count; i++)
+            if (IsInvisibleText(FPDFPage_GetObject(page, i))) return true;
+        return false;
+    }
+
+    static bool IsInvisibleText(nint obj)
+    {
+        switch (FPDFPageObj_GetType(obj))
+        {
+            case FPDF_PAGEOBJ_TEXT:
+                return FPDFTextObj_GetTextRenderMode(obj) == FPDF_TEXTRENDERMODE_INVISIBLE;
+            case FPDF_PAGEOBJ_FORM:
+                int count = FPDFFormObj_CountObjects(obj);
+                for (int i = 0; i < count; i++)
+                    if (IsInvisibleText(FPDFFormObj_GetObject(obj, new CULong((uint)i)))) return true;
+                return false;
+            default:
+                return false;
         }
     }
 
@@ -216,8 +244,10 @@ internal sealed unsafe class PdfFile : IDisposable
     }
 
     const string Lib = "pdfium";
+    const int FPDF_PAGEOBJ_TEXT = 1;
     const int FPDF_PAGEOBJ_IMAGE = 3;
     const int FPDF_PAGEOBJ_FORM = 5;
+    const int FPDF_TEXTRENDERMODE_INVISIBLE = 3;
     const int FPDF_ANNOT = 0x01;
 
     [DllImport(Lib)] static extern void FPDF_InitLibrary();
@@ -242,6 +272,7 @@ internal sealed unsafe class PdfFile : IDisposable
     [DllImport(Lib)] static extern int FPDFFormObj_CountObjects(nint form);
     [DllImport(Lib)] static extern nint FPDFFormObj_GetObject(nint form, CULong index);
     [DllImport(Lib)] static extern int FPDFImageObj_GetImagePixelSize(nint image, out uint width, out uint height);
+    [DllImport(Lib)] static extern int FPDFTextObj_GetTextRenderMode(nint text);
     [DllImport(Lib)] static extern nint FPDFBitmap_Create(int width, int height, int alpha);
     [DllImport(Lib)] static extern int FPDFBitmap_FillRect(nint bitmap, int left, int top, int width, int height, CULong color);
     [DllImport(Lib)] static extern nint FPDFBitmap_GetBuffer(nint bitmap);

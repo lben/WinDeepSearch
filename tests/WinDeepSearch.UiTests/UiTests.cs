@@ -388,7 +388,8 @@ public sealed class UiTests : IDisposable
             query.Text = "";
             query.Focus();
             Keyboard.Type(text);
-            Assert.Equal("Ready · press Enter to search", window.FindFirstDescendant(cf => cf.ByAutomationId("StatusText")).Name);
+            // Typing alone must not start a search.
+            Assert.EndsWith("press Enter to search", window.FindFirstDescendant(cf => cf.ByAutomationId("StatusText")).Name);
             Keyboard.Press(VirtualKeyShort.ENTER);
         }
         else

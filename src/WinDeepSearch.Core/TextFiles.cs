@@ -51,7 +51,9 @@ internal static class TextFiles
             ct.ThrowIfCancellationRequested();
             int read = reader.ReadBlock(buffer, 0, ChunkChars);
             bool end = read < ChunkChars;
-            string window = string.Concat(carry, buffer.AsSpan(0, read));
+            // In .NET, $ only matches before \n, so Windows line endings are made \n first. A \r\n split across two
+            // reads is joined in the next window, which starts with this window's tail.
+            string window = string.Concat(carry, buffer.AsSpan(0, read)).Replace("\r\n", "\n");
             int acceptTo = end ? window.Length : window.Length - LookaheadChars;
 
             int lastEnd = matcher.Search(window, acceptFrom, acceptTo, new TextSegment { Text = window, Locate = LineLabel, FirstLine = firstLine }, result);

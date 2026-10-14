@@ -16,6 +16,20 @@ internal static class OfficeText
     const string MarkupCompatibility = "http://schemas.openxmlformats.org/markup-compatibility/2006";
     const int LinesPerSegment = 5000;
 
+    // Files saved as "Strict Open XML" use these namespaces instead of the usual ones.
+    static readonly Dictionary<string, string> Strict = new()
+    {
+        ["http://purl.oclc.org/ooxml/wordprocessingml/main"] = W,
+        ["http://purl.oclc.org/ooxml/drawingml/main"] = A,
+        ["http://purl.oclc.org/ooxml/spreadsheetml/main"] = S,
+        ["http://purl.oclc.org/ooxml/presentationml/main"] = P,
+    };
+    const string StrictR = "http://purl.oclc.org/ooxml/officeDocument/relationships";
+
+    static string Ns(XmlReader reader) => Strict.GetValueOrDefault(reader.NamespaceURI, reader.NamespaceURI);
+
+    static string? RelAttribute(XmlReader reader, string name) => reader.GetAttribute(name, R) ?? reader.GetAttribute(name, StrictR);
+
     static readonly XmlReaderSettings Settings = new() { DtdProcessing = DtdProcessing.Prohibit, IgnoreComments = true };
 
     public static IEnumerable<TextSegment> Read(string path, ImageText? images, ActiveFile active, CancellationToken ct)
@@ -66,7 +80,7 @@ internal static class OfficeText
         using (var reader = XmlReader.Create(doc.Zip.GetEntry(presentation)!.Open(), Settings))
         {
             while (reader.Read())
-                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sldId" && reader.NamespaceURI == P && reader.GetAttribute("id", R) is { } id)
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sldId" && Ns(reader) == P && RelAttribute(reader, "id") is { } id)
                     slideIds.Add(id);
         }
 
@@ -96,7 +110,7 @@ internal static class OfficeText
         using (var reader = XmlReader.Create(doc.Zip.GetEntry(workbook)!.Open(), Settings))
         {
             while (reader.Read())
-                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sheet" && reader.NamespaceURI == S && reader.GetAttribute("id", R) is { } id)
+                if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "sheet" && Ns(reader) == S && RelAttribute(reader, "id") is { } id)
                     sheets.Add((reader.GetAttribute("name") ?? "Sheet", id));
         }
 
@@ -183,7 +197,7 @@ internal static class OfficeText
         while (reader.Read())
         {
             // Office saves text boxes and shapes twice, a modern copy and a fallback for old readers; read one.
-            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Fallback" && reader.NamespaceURI == MarkupCompatibility)
+            if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "Fallback" && Ns(reader) == MarkupCompatibility)
             {
                 reader.Skip();
                 if (reader.EOF) break;
@@ -192,11 +206,11 @@ internal static class OfficeText
             switch (reader.NodeType)
             {
                 // Checked first: in slides and drawings the picture shares the paragraphs' namespace.
-                case XmlNodeType.Element when (reader.LocalName == "blip" && reader.NamespaceURI == A) || (reader.LocalName == "imagedata" && reader.NamespaceURI == V):
-                    if (reader.GetAttribute(reader.LocalName == "blip" ? "embed" : "id", R) is { } id)
+                case XmlNodeType.Element when (reader.LocalName == "blip" && Ns(reader) == A) || (reader.LocalName == "imagedata" && Ns(reader) == V):
+                    if (RelAttribute(reader, reader.LocalName == "blip" ? "embed" : "id") is { } id)
                         pictures.Add((open.Count > 0 ? open.Peek().Index + 1 : 0, id));
                     break;
-                case XmlNodeType.Element when reader.NamespaceURI == ns:
+                case XmlNodeType.Element when Ns(reader) == ns:
                     switch (reader.LocalName)
                     {
                         case "p":
@@ -217,7 +231,7 @@ internal static class OfficeText
                 case XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace:
                     if (inText && open.Count > 0) open.Peek().Text.Append(reader.Value);
                     break;
-                case XmlNodeType.EndElement when reader.NamespaceURI == ns:
+                case XmlNodeType.EndElement when Ns(reader) == ns:
                     if (reader.LocalName == "t") inText = false;
                     else if (reader.LocalName == "p" && open.Count > 0)
                     {
@@ -240,7 +254,7 @@ internal static class OfficeText
         bool inValue = false;
         while (reader.Read())
         {
-            if (reader.NamespaceURI != S && reader.NodeType is XmlNodeType.Element or XmlNodeType.EndElement) continue;
+            if (Ns(reader) != S && reader.NodeType is XmlNodeType.Element or XmlNodeType.EndElement) continue;
             switch (reader.NodeType)
             {
                 case XmlNodeType.Element:
@@ -302,7 +316,7 @@ internal static class OfficeText
         {
             switch (reader.NodeType)
             {
-                case XmlNodeType.Element when reader.NamespaceURI == S:
+                case XmlNodeType.Element when Ns(reader) == S:
                     if (reader.LocalName == "si") current.Clear();
                     else if (reader.LocalName == "rPh" && !reader.IsEmptyElement) phonetic++;
                     else if (reader.LocalName == "t") inText = !reader.IsEmptyElement && phonetic == 0;
@@ -310,7 +324,7 @@ internal static class OfficeText
                 case XmlNodeType.Text or XmlNodeType.CDATA or XmlNodeType.Whitespace or XmlNodeType.SignificantWhitespace:
                     if (inText) current.Append(reader.Value);
                     break;
-                case XmlNodeType.EndElement when reader.NamespaceURI == S:
+                case XmlNodeType.EndElement when Ns(reader) == S:
                     if (reader.LocalName == "t") inText = false;
                     else if (reader.LocalName == "rPh") phonetic--;
                     else if (reader.LocalName == "si") strings.Add(current.ToString());

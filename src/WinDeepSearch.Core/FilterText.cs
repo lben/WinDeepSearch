@@ -31,7 +31,7 @@ internal static class FilterText
         nint buffer = Marshal.AllocCoTaskMem(bufferChars * sizeof(char));
         try
         {
-            const uint flags = 1 /* canon paragraphs */ | 2 /* canon hyphens */ | 4 /* canon spaces */ | 8 /* hard line breaks */ | 16 /* index attributes */;
+            const uint flags = 1 /* canon paragraphs */ | 2 /* hard line breaks */ | 4 /* canon hyphens */ | 8 /* canon spaces */ | 16 /* index attributes */;
             hr = filter.Init(flags, 0, 0, out _);
             if (hr < 0) throw new IOException($"The Windows filter couldn't read this file (0x{hr:X8}).");
 

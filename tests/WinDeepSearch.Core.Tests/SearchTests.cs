@@ -67,6 +67,17 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task EndOfLineAnchorsWorkWithWindowsLineEndings()
+    {
+        Write("crlf.txt", "Total due: 8215\r\nPaid: 0\r\n");
+
+        var total = Single(await Search(@"due: \d+$", regex: true), "crlf.txt");
+        Assert.Equal(["due: 8215"], total.Hits.SelectMany(Matched));
+        var paid = Single(await Search("^Paid: 0$", regex: true), "crlf.txt");
+        Assert.Equal("Line 2", paid.Hits.Single().Location);
+    }
+
+    [Fact]
     public async Task PlainTextModeTreatsRegexCharactersLiterally()
     {
         Write("a.txt", "price is $5.00 (approx)\nprice is $5000\n");
@@ -169,6 +180,7 @@ public sealed class SearchTests : IDisposable
         });
         Fixtures.Pptx(PathOf("deck.pptx"), [["Agenda", "Welcome"], ["Cash collection", "Riverbend: Invoice #2041"]], firstSlideNotes: "Mention Invoice #2041 early");
         Fixtures.Odt(PathOf("memo.odt"), ["Memo", "Invoice  #2041 is late"]);
+        Fixtures.Docx(PathOf("strict.docx"), ["Saved as Strict Open XML", "Invoice #2041 again"], strict: true);
 
         var results = await Search(@"Invoice\s+#2041", regex: true);
 
@@ -185,6 +197,7 @@ public sealed class SearchTests : IDisposable
 
         Assert.Equal(["Slide 1 notes", "Slide 2"], Single(results, "deck.pptx").Hits.Select(h => h.Location).Order());
         Assert.Equal(["Paragraph 2"], Single(results, "memo.odt").Hits.Select(h => h.Location));
+        Assert.Equal(["Paragraph 2"], Single(results, "strict.docx").Hits.Select(h => h.Location));
     }
 
     [Fact]
@@ -250,6 +263,17 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task ASearchableScanIsCountedOnce()
+    {
+        var scan = Fixtures.TextPicture("Quarterly report", "Invoice 2041 overdue");
+        Fixtures.Pdf(PathOf("searchable-scan.pdf"), ["Cover"], scan, hiddenText: ["Quarterly report", "Invoice 2041 overdue"]);
+
+        var result = Single(await Search("Invoice 2041"), "searchable-scan.pdf");
+        Assert.Equal(1, result.MatchCount);
+        Assert.Equal("Page 2", result.Hits.Single().Location);
+    }
+
+    [Fact]
     public async Task RemembersTextReadFromPictures()
     {
         File.WriteAllBytes(PathOf("scan.png"), Fixtures.TextPicture("Invoice 2041 overdue"));
@@ -283,6 +307,19 @@ public sealed class SearchTests : IDisposable
         // A full path skips only that folder.
         var withoutSrc = await Search("invoice", settings: new Settings { IgnoredFolders = [Path.Combine(_dir, "src")] });
         Assert.Equal(["Invoice 2041.txt", "index.js"], withoutSrc.Select(r => Path.GetFileName(r.Path)).Order(StringComparer.Ordinal));
+    }
+
+    [Fact]
+    public async Task AnOfficeFormatWindowsCannotReadIsCountedAsUnreadable()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows search filters (IFilter) only exist on Windows.");
+        // OneNote's filter comes with Microsoft Office; without it (or for a damaged file) nothing can read this.
+        File.WriteAllBytes(PathOf("notebook.one"), [0xE4, 0x52, 0x5C, 0x7B, 0x8C, 0xD8, 0xA7, 0x4D, 1, 2, 3, 4, 5, 6, 7, 8]);
+
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, engine.Unreadable);
     }
 
     [Fact]
