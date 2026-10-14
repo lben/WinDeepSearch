@@ -1,0 +1,848 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WinDeepSearch search window</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; box-sizing: border-box; display: flex; flex-direction: column; min-height: {{ rootMinH }}; background: #F3F3F3; color: #1B1B1B; font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Open Sans', sans-serif; font-size: 14px; line-height: 20px">
+
+<sc-if value="{{ showChrome }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding-left: 14px; font-size: 12px">
+<span aria-hidden="true" style="flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #005FB8"><svg viewBox="0 0 16 16" width="12" height="12" style="display: block; fill: none; stroke: #FFFFFF; stroke-width: 2; stroke-linecap: round"><circle cx="7" cy="7" r="4.25"></circle><path d="M10.25 10.25 13.5 13.5"></path></svg></span>
+<span style="flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ windowTitle }}</span>
+<span style="display: flex">
+<button type="button" aria-label="Minimize" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><path d="M0 5h10"></path></svg></button>
+<button type="button" aria-label="Maximize" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5"></rect></svg></button>
+<button type="button" aria-label="Close" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9"></path></svg></button>
+</span>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 10px 20px 12px">
+
+<sc-if value="{{ scopeFolder }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: #5C5C5C">
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex: 0 0 auto; display: block; fill: none; stroke: #9D6B00; stroke-width: 1.3; stroke-linejoin: round"><path d="M1.5 3.5h4.5l1.5 1.5h7v8h-13z"></path></svg>
+<span>Search in</span>
+<span style="color: #1B1B1B; font-weight: 600; word-break: break-all">{{ rootPath }}</span>
+<span>and all its subfolders</span>
+</div>
+</sc-if>
+
+<sc-if value="{{ scopeFile }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: #5C5C5C">
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex: 0 0 auto; display: block; fill: none; stroke: #5C5C5C; stroke-width: 1.3; stroke-linejoin: round"><path d="M3.5 1.5h6l3 3v10h-9zM9.5 1.5v3h3"></path></svg>
+<span>Started from</span>
+<span style="color: #1B1B1B; font-weight: 600; word-break: break-all">{{ selectedPath }}</span>
+<label style="display: inline-flex; align-items: center; gap: 8px; min-height: 28px; margin-left: 8px; padding: 0 10px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; cursor: pointer"><input type="checkbox" checked="{{ justFile }}" onChange="{{ toggleJust }}" style="width: 16px; height: 16px; margin: 0; accent-color: #005FB8">Just this selected file</label>
+</div>
+<sc-if value="{{ showParentScope }}" hint-placeholder-val="{{ false }}">
+<div style="font-size: 12px; color: #5C5C5C">{{ parentScopeText }}</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ scopeApp }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: #5C5C5C">
+<label for="wds-scope">Search in</label>
+<input id="wds-scope" type="text" value="{{ scopeText }}" onChange="{{ onScopeText }}" style="flex: 0 1 420px; min-width: 160px; box-sizing: border-box; height: 32px; padding: 0 10px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font: inherit; font-size: 13px">
+<button type="button" onClick="{{ browse }}" style="height: 32px; padding: 0 12px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Browse…</button>
+<span>and all its subfolders</span>
+</div>
+</sc-if>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<div style="position: relative; flex: 1 1 320px; min-width: 0">
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="position: absolute; left: 11px; top: 10px; display: block; fill: none; stroke: #5C5C5C; stroke-width: 1.4; stroke-linecap: round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg>
+<input type="text" aria-label="Search text or regular expression" placeholder="Text or regular expression, then press Enter" value="{{ query }}" onChange="{{ onQuery }}" onKeyDown="{{ onKey }}" style="box-sizing: border-box; width: 100%; height: 36px; padding: 0 12px 0 36px; border: 1px solid #D1D1D1; border-bottom: 2px solid #005FB8; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 14px">
+</div>
+<button type="button" aria-label="Use regular expression" aria-pressed="{{ regexPressed }}" title="Use regular expression (Alt+R)" onClick="{{ toggleRegex }}" style="{{ regexStyle }}">.*</button>
+<button type="button" aria-label="Match case" aria-pressed="{{ casePressed }}" title="Match case (Alt+C)" onClick="{{ toggleCase }}" style="{{ caseStyle }}">Aa</button>
+<button type="button" aria-label="Search text in images" aria-pressed="{{ ocrPressed }}" title="Search text in images and scanned pages (Alt+I)" onClick="{{ toggleOcr }}" style="{{ ocrStyle }}"><svg viewBox="0 0 16 16" width="18" height="18" aria-hidden="true" style="display: block; margin: 0 auto; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round"><path d="M1.5 2.5h13v11h-13zM1.5 11l3.5-3.5 3 3M9.5 5.5h3.5M11.25 5.5v4.5"></path></svg></button>
+<button type="button" onClick="{{ go }}" style="{{ goStyle }}">
+<sc-if value="{{ running }}" hint-placeholder-val="{{ false }}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="display: block; fill: currentColor"><rect x="3.5" y="3.5" width="9" height="9" rx="1"></rect></svg></sc-if>
+<sc-if value="{{ notRunning }}" hint-placeholder-val="{{ true }}"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg></sc-if>
+<span>{{ goLabel }}</span>
+</button>
+</div>
+
+<sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="font-size: 12px; color: #A4262C">{{ error }}</div>
+</sc-if>
+
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 0 20px 12px">
+
+<div style="position: relative; flex: 999 1 560px; min-width: 0">
+<div style="box-sizing: border-box; height: 600px; display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; border-bottom: 1px solid #EDEDED; font-size: 12px; color: #5C5C5C">
+<span style="font-weight: 600; color: #1B1B1B">{{ listHeading }}</span>
+<span>Hover a result for context · click it to open its folder · use the arrow to list every match</span>
+</div>
+<div data-list="1" onScroll="{{ onListScroll }}" style="position: relative; flex: 1; min-height: 0; overflow-y: auto; padding: 6px">
+
+<sc-if value="{{ showEmpty }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 56px 32px; text-align: center; font-size: 13px; color: #5C5C5C">{{ emptyText }}</div>
+</sc-if>
+
+<sc-if value="{{ showItems }}" hint-placeholder-val="{{ true }}">
+<sc-for list="{{ items }}" as="it" hint-placeholder-count="6">
+<sc-if value="{{ it.isHeader }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 10px 4px; font-size: 12px; font-weight: 600; color: #5C5C5C">{{ it.label }}</div>
+</sc-if>
+<sc-if value="{{ it.isFile }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column">
+<div style="display: flex; align-items: center; gap: 2px">
+<sc-if value="{{ it.hasChevron }}" hint-placeholder-val="{{ true }}">
+<button type="button" aria-label="{{ it.toggleLabel }}" aria-expanded="{{ it.expandedAttr }}" onClick="{{ it.toggle }}" style="flex: 0 0 auto; width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 4px; background: transparent; color: #5C5C5C; cursor: pointer"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="{{ it.chevStyle }}"><path d="M4 6l4 4 4-4"></path></svg></button>
+</sc-if>
+<sc-if value="{{ it.noChevron }}" hint-placeholder-val="{{ false }}">
+<span style="flex: 0 0 28px; height: 28px"></span>
+</sc-if>
+<button type="button" onClick="{{ it.open }}" onMouseEnter="{{ it.enter }}" onMouseLeave="{{ it.leave }}" style="{{ it.rowStyle }}">
+<span style="{{ it.badgeStyle }}">{{ it.badge }}</span>
+<span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+<span style="display: flex; align-items: baseline; gap: 8px; min-width: 0">
+<span style="flex: 0 1 auto; min-width: 0; font-weight: 600; white-space: pre; overflow: hidden; text-overflow: ellipsis"><sc-for list="{{ it.nameParts }}" as="p" hint-placeholder-count="1"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></span>
+<span style="flex: 1 1 0; min-width: 0; font-size: 12px; color: #6E6E6E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ it.dir }}</span>
+</span>
+<sc-if value="{{ it.showFirst }}" hint-placeholder-val="{{ true }}">
+<span style="display: flex; align-items: baseline; gap: 10px; min-width: 0">
+<span style="flex: 0 0 auto; font-size: 12px; color: #6E6E6E">{{ it.firstLoc }}</span>
+<span style="flex: 1; min-width: 0; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 12.5px; color: #2B2B2B; white-space: pre; overflow: hidden; text-overflow: ellipsis"><sc-for list="{{ it.firstParts }}" as="p" hint-placeholder-count="2"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></span>
+</span>
+</sc-if>
+<sc-if value="{{ it.noHits }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 12px; color: #6E6E6E">{{ it.noHitsText }}</span>
+</sc-if>
+</span>
+<span style="{{ it.countStyle }}">{{ it.count }}</span>
+</button>
+</div>
+<sc-if value="{{ it.showHits }}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{ it.hits }}" as="h" hint-placeholder-count="3">
+<button type="button" onClick="{{ h.open }}" onMouseEnter="{{ h.enter }}" onMouseLeave="{{ h.leave }}" style="{{ h.rowStyle }}">
+<span style="flex: 0 0 150px; font-size: 12px; color: #6E6E6E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ h.loc }}</span>
+<span style="flex: 1; min-width: 0; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; color: #2B2B2B; white-space: pre; overflow: hidden; text-overflow: ellipsis"><sc-for list="{{ h.parts }}" as="p" hint-placeholder-count="2"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></span>
+</button>
+</sc-for>
+<sc-if value="{{ it.hasMore }}" hint-placeholder-val="{{ false }}">
+<button type="button" onClick="{{ it.showMore }}" style="align-self: flex-start; margin: 2px 0 6px 82px; padding: 4px 10px; border: 0; border-radius: 4px; background: transparent; color: #005FB8; font: inherit; font-size: 12.5px; cursor: pointer">{{ it.moreLabel }}</button>
+</sc-if>
+</sc-if>
+</div>
+</sc-if>
+</sc-for>
+</sc-if>
+
+<sc-if value="{{ showFlat }}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{ flatHits }}" as="h" hint-placeholder-count="8">
+<button type="button" onClick="{{ h.open }}" onMouseEnter="{{ h.enter }}" onMouseLeave="{{ h.leave }}" style="{{ h.rowStyle }}">
+<span style="flex: 0 0 96px; font-size: 12px; color: #6E6E6E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ h.loc }}</span>
+<span style="flex: 1; min-width: 0; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; color: #2B2B2B; white-space: pre; overflow: hidden; text-overflow: ellipsis"><sc-for list="{{ h.parts }}" as="p" hint-placeholder-count="2"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></span>
+</button>
+</sc-for>
+</sc-if>
+
+</div>
+</div>
+
+<sc-if value="{{ pop.show }}" hint-placeholder-val="{{ false }}">
+<div role="tooltip" style="position: absolute; left: 48px; right: 16px; max-width: 720px; z-index: 30; {{ pop.pos }}; box-sizing: border-box; padding: 10px 0; background: #FFFFFF; border: 1px solid #D6D6D6; border-radius: 8px; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.16); pointer-events: none">
+<div style="display: flex; align-items: baseline; gap: 8px; padding: 0 14px 4px; font-size: 12px; color: #5C5C5C; min-width: 0">
+<span style="flex: 0 0 auto; font-weight: 600; color: #1B1B1B">{{ pop.title }}</span>
+<span style="min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ pop.sub }}</span>
+</div>
+<sc-for list="{{ pop.blocks }}" as="b" hint-placeholder-count="1">
+<div style="padding-top: 6px">
+<div style="padding: 2px 14px 4px; font-size: 12px; font-weight: 600; color: #005FB8">{{ b.loc }}</div>
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 12px">
+<sc-if value="{{ b.isImage }}" hint-placeholder-val="{{ false }}">
+<div style="flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; margin-left: 14px">
+<div style="{{ b.imgStyle }}">
+<sc-for list="{{ b.imgLines }}" as="il" hint-placeholder-count="5">
+<div style="min-height: 14px; white-space: pre"><sc-for list="{{ il.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></div>
+</sc-for>
+</div>
+<div style="font-size: 11px; color: #6E6E6E">{{ b.imgCaption }}</div>
+</div>
+</sc-if>
+<div style="flex: 1 1 320px; min-width: 0; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 12.5px; line-height: 19px; color: #2B2B2B">
+<sc-for list="{{ b.lines }}" as="ln" hint-placeholder-count="7">
+<div style="display: flex; {{ ln.bg }}">
+<span style="flex: 0 0 52px; box-sizing: border-box; padding-right: 12px; text-align: right; color: #6E6E6E">{{ ln.n }}</span>
+<span style="flex: 1; min-width: 0; padding-right: 14px; white-space: pre; overflow: hidden; text-overflow: ellipsis"><sc-for list="{{ ln.parts }}" as="p" hint-placeholder-count="1"><span style="{{ p.st }}">{{ p.t }}</span></sc-for></span>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+</sc-for>
+<sc-if value="{{ pop.hasMore }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 8px 14px 0; font-size: 12px; color: #5C5C5C">{{ pop.more }}</div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+
+<div style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; height: 600px; display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<div style="padding: 12px 16px 12px; border-bottom: 1px solid #EDEDED">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px">
+<span style="font-weight: 600">{{ panel.title }}</span>
+<span style="font-size: 12px; color: #5C5C5C">{{ panel.threads }}</span>
+</div>
+<sc-if value="{{ panel.showBar }}" hint-placeholder-val="{{ true }}">
+<div style="margin-top: 10px; height: 4px; border-radius: 2px; background: #E6E6E6; overflow: hidden"><div style="height: 100%; width: {{ panel.pct }}%; background: #005FB8; transition: width 120ms linear"></div></div>
+<div style="margin-top: 6px; font-size: 12px; color: #5C5C5C">{{ panel.counts }}</div>
+</sc-if>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 6px 8px">
+<sc-for list="{{ panel.active }}" as="a" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; padding: 8px">
+<span style="{{ a.badgeStyle }}">{{ a.badge }}</span>
+<div style="flex: 1; min-width: 0">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 13px">
+<span title="{{ a.full }}" style="min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ a.name }}</span>
+<span style="flex: 0 0 auto; font-size: 12px; color: #6E6E6E">{{ a.size }}</span>
+</div>
+<div style="font-size: 12px; color: #6E6E6E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ a.dir }}</div>
+<div style="margin-top: 6px; height: 3px; border-radius: 2px; background: #E6E6E6; overflow: hidden"><div style="height: 100%; width: {{ a.pct }}%; background: #005FB8; transition: width 120ms linear"></div></div>
+<div style="margin-top: 4px; font-size: 12px; color: #5C5C5C">{{ a.stats }}</div>
+</div>
+<button type="button" onClick="{{ a.skip }}" aria-label="{{ a.skipLabel }}" title="Stop searching this file and move on" style="flex: 0 0 auto; height: 30px; padding: 0 12px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 12px; cursor: pointer">Skip</button>
+</div>
+</sc-for>
+<sc-if value="{{ panel.showNote }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 10px 8px; font-size: 13px; color: #5C5C5C">{{ panel.note }}</p>
+</sc-if>
+</div>
+<sc-if value="{{ panel.hasSkipped }}" hint-placeholder-val="{{ false }}">
+<div style="padding: 10px 16px 12px; border-top: 1px solid #EDEDED">
+<div style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: #8A5300"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round"><path d="M8 2l6.5 11.5h-13zM8 6.5v3.5M8 12v0.01"></path></svg><span>{{ panel.skippedTitle }}</span></div>
+<sc-for list="{{ panel.skipped }}" as="k" hint-placeholder-count="1">
+<div style="margin-top: 4px; font-size: 12px; color: #5C5C5C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ k.label }}</div>
+</sc-for>
+</div>
+</sc-if>
+</div>
+
+</div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 4px 18px; box-sizing: border-box; min-height: 32px; padding: 6px 20px; margin-top: auto; border-top: 1px solid #E5E5E5; font-size: 12px; color: #5C5C5C">
+<span>{{ status.left }}</span>
+<span>{{ status.counts }}</span>
+<sc-if value="{{ status.hasSkipped }}" hint-placeholder-val="{{ false }}">
+<span style="color: #8A5300">{{ status.skipped }}</span>
+</sc-if>
+</div>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: 48px; z-index: 40; transform: translateX(-50%); box-sizing: border-box; max-width: 80%; padding: 10px 16px; border-radius: 6px; background: #2B2B2B; color: #FFFFFF; font-size: 13px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2)">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"demoExpanded":{"editor":"boolean","default":false},"origin":{"editor":"enum","options":["folder","file","app"],"default":"folder"},"justThisFile":{"editor":"boolean","default":false},"embedded":{"editor":null,"default":false},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    this.D = this.buildData();
+    this.S = this.styles();
+    this.timer = null;
+    this.toastTimer = null;
+    this.state = this.initState();
+  }
+
+  opts() {
+    const p = this.props || {};
+    return {
+      origin: p.origin === 'file' || p.origin === 'app' ? p.origin : 'folder',
+      demoExpanded: p.demoExpanded === true,
+      embedded: p.embedded === true,
+      justThisFile: p.justThisFile === true
+    };
+  }
+
+  initState() {
+    const o = this.opts();
+    const st = {
+      query: 'invoice\\s*#?(?=\\d{4})',
+      regex: true,
+      matchCase: false,
+      ocr: true,
+      justFile: o.justThisFile,
+      scopeText: 'C:\\',
+      scopeChanged: false,
+      error: '',
+      sim: null,
+      hover: null,
+      expanded: o.demoExpanded ? { svc: true, billlog: true } : {},
+      showAll: {},
+      toast: ''
+    };
+    if (o.origin !== 'app') {
+      const just = o.origin === 'file' && st.justFile;
+      st.sim = this.advance(this.freshSim(o.origin, just, true), just ? 40 : 50);
+    }
+    return st;
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const sim = this.state.sim;
+      if (sim && sim.running) this.setState({ sim: this.step(sim) });
+    }, 120);
+  }
+
+  componentWillUnmount() {
+    clearInterval(this.timer);
+    clearTimeout(this.toastTimer);
+  }
+
+  styles() {
+    const base = 'border: 0; border-radius: 6px; text-align: left; font: inherit; color: inherit; cursor: pointer; box-sizing: border-box; ';
+    return {
+      mark: 'background: #FFE08A; box-shadow: 0 0 0 1px #E8C252; border-radius: 2px',
+      outline: 'outline: 2px solid #F08C00; outline-offset: 1px; background: rgba(255, 196, 0, 0.3); border-radius: 1px',
+      plain: 'background: transparent',
+      head: base + 'flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 10px; background: ',
+      hit: base + 'width: 100%; display: flex; align-items: center; gap: 12px; padding: 3px 10px 3px 92px; font-size: 12.5px; background: ',
+      hitFlat: base + 'width: 100%; display: flex; align-items: center; gap: 12px; padding: 4px 10px; font-size: 12.5px; background: ',
+      hoverBg: '#EAF1FB',
+      count: 'flex: 0 0 auto; padding: 1px 8px; border-radius: 9px; background: #F0F0F0; color: #3B3B3B; font-size: 12px; line-height: 18px; white-space: nowrap',
+      imgPaper: 'box-sizing: border-box; width: 220px; overflow: hidden; padding: 10px 12px; background: #F3EFE6; border: 1px solid #D9D2C3; color: #33302A; font-family: "Courier New", Courier, monospace; font-size: 10px; line-height: 14px; transform: rotate(-0.8deg); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15)',
+      imgScreen: 'box-sizing: border-box; width: 220px; overflow: hidden; padding: 10px 12px; background: #1F2329; border: 1px solid #0F1114; border-radius: 4px; color: #E8EAED; font-family: "Segoe UI", "Open Sans", sans-serif; font-size: 10px; line-height: 14px'
+    };
+  }
+
+  buildData() {
+    const L = (n, t) => ({ n: n, hit: false, segs: [{ t: t, m: false }] });
+    const H = (n, ...a) => ({ n: n, hit: true, segs: a.map((t, i) => ({ t: t, m: i % 2 === 1 })) });
+    const files = [
+      { id: 'inv2041', name: 'Invoice 2041.pdf', nm: ['', 'Invoice ', '2041.pdf'], dir: 'billing\\2026', ext: 'pdf', at: 6, hits: [
+        { loc: 'Page 1', lines: [L(1, 'ACME Corporation'), L(2, '1200 Harbor Way, Suite 400'), L(3, 'Portland, OR 97209'), H(4, '', 'Invoice #', '2041'), L(5, 'Issued: 2 October 2026'), L(6, 'Due: 1 November 2026'), L(7, 'Bill to: Riverbend Outfitters')] },
+        { loc: 'Page 3', lines: [L(9, 'Payment terms'), L(10, 'Net 30. Late payments accrue 1.5% per month.'), L(11, 'Please quote the invoice number on every remittance.'), H(12, 'Remit to: Acme Corporation — ', 'Invoice #', '2041'), L(13, 'Bank: First Harbor Bank'), L(14, 'Account ending 4821'), L(15, 'Thank you for your business.')] }
+      ] },
+      { id: 'inv2187', name: 'invoice2187.docx', nm: ['', 'invoice', '2187.docx'], dir: 'billing\\2026\\drafts', ext: 'docx', at: 9, hits: [
+        { loc: 'Paragraph 4', lines: [L(1, 'DRAFT — not sent yet'), L(2, 'Riverbend Outfitters'), L(3, 'Attn: Accounts Payable'), H(4, 'Re: ', 'Invoice ', '2187 for October consulting'), L(5, 'Hours billed: 42.5 at $140.00'), L(6, 'Subtotal: $5,950.00'), L(7, 'Tax (0%): $0.00')] }
+      ] },
+      { id: 'inv1999', name: 'Invoice 1999 (paid).jpg', nm: ['', 'Invoice ', '1999 (paid).jpg'], dir: 'billing\\2025\\scans', ext: 'jpg', at: 3, hits: [
+        { loc: 'Text in image · line 2', ocr: 'paper', lines: [L(1, 'ACME CORPORATION'), H(2, '', 'INVOICE #', '1999'), L(3, 'Date: 14 Aug 2025'), L(4, 'Total: $2,480.00'), L(5, 'PAID — thank you')] }
+      ] },
+      { id: 'video', name: 'Invoice 2041 walkthrough.mp4', nm: ['', 'Invoice ', '2041 walkthrough.mp4'], dir: 'billing\\training', ext: 'mp4', at: 4, hits: [] },
+      { id: 'billlog', name: 'billing-api-2026-10-02.log', dir: 'logs', ext: 'log', slowId: 'billlog', hits: this.logHits(L, H) },
+      { id: 'svc', name: 'InvoiceService.cs', dir: 'src\\Billing', ext: 'cs', at: 14, hits: [
+        { loc: 'Line 17', lines: [L(14, 'using System.Globalization;'), L(15, ''), L(16, 'namespace Acme.Billing;'), H(17, '// ', 'Invoice #', '4410: amounts must use banker’s rounding (see ADR-12)'), L(18, '/// <summary>Creates, numbers and renders invoices.</summary>'), L(19, 'public sealed class InvoiceService : IInvoiceService'), L(20, '{')] },
+        { loc: 'Line 112', lines: [L(109, '    public string FormatNumber(int number)'), L(110, '    {'), L(111, '        if (number < 0) throw new ArgumentOutOfRangeException(nameof(number));'), H(112, '        // Legacy numbers below ', 'Invoice ', '1000 were imported without padding'), L(113, '        return number < 1000'), L(114, '            ? number.ToString(CultureInfo.InvariantCulture)'), L(115, '            : number.ToString("D4", CultureInfo.InvariantCulture);')] },
+        { loc: 'Line 207', lines: [L(204, '    private static bool IsExempt(Customer c) =>'), L(205, '        c.TaxRegion is TaxRegion.None or TaxRegion.Export'), L(206, '        || c.Id == SpecialCases.RiverbendId;'), H(207, '    // TODO: remove the special case for ', 'Invoice #', '5021 once Riverbend migrates'), L(208, ''), L(209, '    public async Task<Invoice> ReissueAsync(int number, CancellationToken ct)'), L(210, '    {')] },
+        { loc: 'Line 233', lines: [L(230, '        var original = await _store.GetAsync(number, ct)'), L(231, '            ?? throw new KeyNotFoundException($"No invoice {number}");'), L(232, '        var copy = original with { IssuedOn = _clock.Today, Revision = original.Revision + 1 };'), H(233, '        _log.LogWarning("Invoice {Number} reissued", number); // e.g. ', 'Invoice ', '5021'), L(234, '        await _store.SaveAsync(copy, ct);'), L(235, '        return copy;'), L(236, '    }')] }
+      ] },
+      { id: 'notes', name: 'meeting-notes.md', dir: 'notes', ext: 'md', at: 22, hits: [
+        { loc: 'Line 41', lines: [L(38, '## 2026-10-01 — Billing sync'), L(39, ''), L(40, '- Riverbend asked for a copy of the September statement'), H(41, '- ', 'Invoice #', '2041 goes out Friday; ', 'Invoice #', '2187 waits for Q3 close'), L(42, '- Dana to fix the rounding bug before the next run'), L(43, '- Move the PDF template to v3'), L(44, '')] },
+        { loc: 'Line 77', lines: [L(74, '## 2026-10-08 — Retro'), L(75, ''), L(76, '- Reminder emails went out with the wrong due date'), H(77, '- Fix landed; resent ', 'Invoice #', '2041 by hand'), L(78, '- Add a test for month-end boundaries'), L(79, '- Next retro: 2026-10-22'), L(80, '')] }
+      ] },
+      { id: 'budget', name: 'Q3 Budget.xlsx', dir: 'finance', ext: 'xlsx', slowId: 'budget', hits: [
+        { loc: 'Receivables · row 18', lines: [L(15, 'Harbor Lights LLC  │  PO 7781  │  $12,400.00  │  2026-09-15'), L(16, 'Riverbend Outfitters  │  PO 7790  │  $5,950.00  │  2026-09-30'), L(17, 'Summit Dental  │  Credit memo  │  -$420.00  │  2026-09-30'), H(18, 'Riverbend Outfitters  │  ', 'Invoice #', '2041  │  $8,215.50  │  2026-11-01'), L(19, 'Northgate Schools  │  PO 7802  │  $3,100.00  │  2026-11-05'), L(20, 'Kestrel Freight  │  PO 7811  │  $990.00  │  2026-11-12'), L(21, 'Total  │      │  $30,235.50  │')] },
+        { loc: 'Notes · row 4', lines: [L(1, 'Q3 receivables notes'), L(2, ''), L(3, 'Riverbend disputes the freight line; hold until the call on 10/20'), H(4, '', 'Invoice ', '2187 is still a draft; send after Q3 close'), L(5, 'Summit Dental credit memo applied'), L(6, ''), L(7, 'Owner: finance team')] }
+      ] },
+      { id: 'mail', name: '2026-10-12 Payment reminder.eml', dir: 'mail\\exports', ext: 'eml', at: 28, hits: [
+        { loc: 'Line 9', lines: [L(6, 'From: billing@acme.example'), L(7, 'To: ap@riverbend.example'), L(8, 'Date: Mon, 12 Oct 2026 09:12:44 -0700'), H(9, 'Subject: Reminder: ', 'Invoice #', '2041 due 1 November'), L(10, 'MIME-Version: 1.0'), L(11, 'Content-Type: multipart/alternative; boundary="b1"'), L(12, '')] },
+        { loc: 'Line 24', lines: [L(21, 'Hello Riverbend team,'), L(22, ''), L(23, 'A friendly reminder that this is due soon:'), H(24, '    ', 'Invoice ', '2041 — $8,215.50 — due 1 November 2026'), L(25, ''), L(26, 'You can pay by bank transfer or card from the portal.'), L(27, 'Thanks, Acme Billing')] }
+      ] },
+      { id: 'amend', name: 'Contract amendment.doc', dir: 'contracts\\Riverbend', ext: 'doc', at: 40, hits: [
+        { loc: 'Paragraph 12', lines: [L(9, 'Amendment No. 2'), L(10, 'Effective 1 October 2026'), L(11, 'The parties agree to the following changes:'), H(12, '(a) ', 'Invoice ', '2041 replaces ', 'Invoice ', '2036, which is void.'), L(13, '(b) Payment terms change from Net 45 to Net 30.'), L(14, '(c) All other terms remain in effect.'), L(15, 'Signed for Acme: ____________')] }
+      ] },
+      { id: 'msa', name: 'Master Services Agreement.pdf', dir: 'contracts\\Riverbend', ext: 'pdf', at: 35, hits: [
+        { loc: 'Page 7', lines: [L(1, '7. Billing'), L(2, '7.1 Acme will invoice monthly in arrears.'), L(3, '7.2 Each invoice shall reference the Statement of Work.'), H(4, '7.3 The first invoice under this Agreement is ', 'Invoice #', '1001.'), L(5, '7.4 Disputed amounts must be raised within 15 days.'), L(6, '7.5 Undisputed amounts are due within 30 days.'), L(7, '8. Term and termination')] }
+      ] },
+      { id: 'deck', name: 'Q4 kickoff.pptx', dir: 'presentations', ext: 'pptx', slowId: 'deck', hits: [
+        { loc: 'Slide 9', lines: [L(1, 'Cash collection'), L(2, 'Days sales outstanding: 41 → 33'), L(3, 'Top overdue accounts'), H(4, 'Riverbend: ', 'Invoice #', '2041 ($8.2k)'), L(5, 'Harbor Lights: PO 7781 ($12.4k)'), L(6, 'Owner: finance'), L(7, 'Next: automate reminders')] },
+        { loc: 'Slide 12 · text in picture', ocr: 'screen', lines: [L(1, 'Collections dashboard'), L(2, 'Overdue more than 14 days'), H(3, 'Riverbend Outfitters   ', 'Invoice #', '2041   $8,215.50'), L(4, 'Harbor Lights LLC   PO 7781   $12,400.00'), L(5, 'Updated 9 Oct 2026')] }
+      ] },
+      { id: 'shot', name: 'portal-error.png', dir: 'screenshots', ext: 'png', at: 18, hits: [
+        { loc: 'Text in image · line 3', ocr: 'screen', lines: [L(1, 'Acme Billing Portal'), L(2, 'Send invoices'), H(3, 'Error: ', 'Invoice #', '2041 could not be sent (SMTP 451)'), L(4, 'Retry    Cancel'), L(5, 'Signed in as finance@acme.example')] }
+      ] },
+      { id: 'scanpdf', name: 'Archive 2019-2024.pdf', dir: 'scans', ext: 'pdf', slowId: 'scan', hits: [
+        { loc: 'Page 212 · scanned page', ocr: 'paper', lines: [L(14, 'RIVERBEND OUTFITTERS — STATEMENT'), L(15, 'Period: March 2023'), L(16, 'Previous balance   $0.00'), H(17, '', 'Invoice #', '1187   $3,400.00   paid'), L(18, 'Credit memo CM-22   -$150.00'), L(19, 'Balance due   $0.00'), L(20, 'Page 212 of 380')] },
+        { loc: 'Page 307 · scanned page', ocr: 'paper', lines: [L(3, 'ACME CORPORATION'), L(4, 'Portland, OR 97209'), L(5, ''), H(6, '', 'INVOICE #', '1650'), L(7, 'Issued 3 May 2024'), L(8, 'Bill to: Summit Dental'), L(9, 'Amount due: $1,920.00')] }
+      ] }
+    ];
+    files.forEach((f, i) => {
+      f.order = i;
+      f.nameSegs = f.nm ? f.nm.map((t, k) => ({ t: t, m: k % 2 === 1 })) : null;
+    });
+    const byId = {};
+    files.forEach(f => { byId[f.id] = f; });
+    const slow = [
+      { id: 'tele', name: 'telemetry-2026-09.log', dir: 'logs\\archive', ext: 'log', sizeMB: 3480, size: '3.4 GB', start: 2, rate: 0.3 },
+      { id: 'dump', name: 'db-dump-2026-06.sql', dir: 'backups', ext: 'sql', sizeMB: 1230, size: '1.2 GB', start: 5, rate: 0.9 },
+      { id: 'scan', name: 'Archive 2019-2024.pdf', dir: 'scans', ext: 'pdf', sizeMB: 640, size: '640 MB', pages: 380, start: 8, rate: 1.2 },
+      { id: 'billlog', name: 'billing-api-2026-10-02.log', dir: 'logs', ext: 'log', sizeMB: 18.6, size: '18.6 MB', start: 20, rate: 4 },
+      { id: 'budget', name: 'Q3 Budget.xlsx', dir: 'finance', ext: 'xlsx', sizeMB: 1.3, size: '1.3 MB', start: 30, rate: 5 },
+      { id: 'deck', name: 'Q4 kickoff.pptx', dir: 'presentations', ext: 'pptx', sizeMB: 14.2, size: '14.2 MB', start: 44, rate: 3 },
+      { id: 'csv', name: 'customers-export.csv', dir: 'datasets', ext: 'csv', sizeMB: 780, size: '780 MB', start: 60, rate: 1 },
+      { id: 'mbox', name: 'archive.mbox', dir: 'mail\\exports', ext: 'mbox', sizeMB: 2250, size: '2.2 GB', start: 70, rate: 0.45 }
+    ];
+    return { root: 'C:\\Users\\you\\Documents\\Clients\\Acme', files: files, byId: byId, slow: slow, threads: 8 };
+  }
+
+  logHits(L, H) {
+    const accts = ['0093', '1187', '0412', '2210', '0078', '3304', '0561'];
+    const doms = ['riverbend.example', 'harborlights.example', 'summitdental.example', 'northgate.example', 'kestrel.example'];
+    const pad = (v, w) => String(v).padStart(w, '0');
+    const out = [];
+    for (let k = 0; k < 23; k++) {
+      const n = 1184 + k * 352 + (k * 37) % 61;
+      const inv = 4471 + k * 9;
+      const base = 8 * 3600 + 14 * 60 + 22 + k * 1270;
+      const ts = d => {
+        const s = base + d;
+        return pad(Math.floor(s / 3600), 2) + ':' + pad(Math.floor(s / 60) % 60, 2) + ':' + pad(s % 60, 2) + '.' + pad((k * 137 + (d + 3) * 41) % 1000, 3);
+      };
+      const hitLine = k % 5 === 3
+        ? H(n, ts(0) + ' WARN  InvoiceWorker  Retrying ', 'Invoice #', inv + ' after SMTP timeout')
+        : H(n, ts(0) + ' INFO  InvoiceWorker  Created ', 'Invoice #', inv + ' for account ' + accts[k % accts.length]);
+      out.push({ loc: 'Line ' + n.toLocaleString('en-US'), lines: [
+        L(n - 3, ts(-2) + ' DEBUG Scheduler      Picked batch b-' + (310 + k)),
+        L(n - 2, ts(-1) + ' INFO  TaxCalc        Region resolved: US-OR (0.00%)'),
+        L(n - 1, ts(-1) + ' DEBUG PdfRenderer    Loaded template invoice-v3'),
+        hitLine,
+        L(n + 1, ts(0) + ' DEBUG Mailer         Queued email to ap@' + doms[k % doms.length]),
+        L(n + 2, ts(1) + ' INFO  Storage        Saved PDF (' + (38 + (k * 7) % 25) + ' KB)'),
+        L(n + 3, ts(1) + ' DEBUG Scheduler      Batch b-' + (310 + k) + ' finished')
+      ] });
+    }
+    return out;
+  }
+
+  scope(origin, just) {
+    if (origin === 'file' && just) return { prefix: 'logs', total: 1, ticks: 1, show: '' };
+    if (origin === 'file') return { prefix: 'logs', total: 214, ticks: 60, show: '' };
+    if (origin === 'app') return { prefix: '', total: 486220, ticks: 300, show: 'Users\\you\\Documents\\Clients\\Acme\\' };
+    return { prefix: '', total: 3912, ticks: 150, show: '' };
+  }
+
+  inScope(sc, dir) {
+    return sc.prefix === '' || dir === sc.prefix || dir.indexOf(sc.prefix + '\\') === 0;
+  }
+
+  freshSim(origin, just, ocr) {
+    const sc = this.scope(origin, just);
+    const reset = x => Object.assign({}, x, { pct: 0, state: 'waiting', since: null });
+    const slow = just
+      ? [Object.assign(reset(this.D.slow.find(x => x.id === 'billlog')), { start: 0, rate: 6 })]
+      : this.D.slow.filter(x => this.inScope(sc, x.dir)).map(reset);
+    const small = sc.total - slow.length;
+    return { origin: origin, just: just, ocr: ocr, tick: 0, running: true, stopped: false, total: sc.total, small: small, perTick: small / sc.ticks, smallDone: 0, slow: slow };
+  }
+
+  step(sim) {
+    const t = sim.tick + 1;
+    const slow = sim.slow.map(f => {
+      if (f.state === 'done' || f.state === 'skipped' || t < f.start) return f;
+      const pct = Math.min(100, f.pct + f.rate);
+      return Object.assign({}, f, { pct: pct, state: pct >= 100 ? 'done' : 'active', since: f.since === null ? t : f.since });
+    });
+    const smallDone = Math.min(sim.small, Math.round(t * sim.perTick));
+    const open = slow.some(f => f.state === 'waiting' || f.state === 'active');
+    return Object.assign({}, sim, { tick: t, slow: slow, smallDone: smallDone, running: open || smallDone < sim.small });
+  }
+
+  advance(sim, n) {
+    let s = sim;
+    for (let i = 0; i < n && s.running; i++) s = this.step(s);
+    return s;
+  }
+
+  isRevealed(f, sim) {
+    if (f.slowId) {
+      const e = sim.slow.find(x => x.id === f.slowId);
+      return !!e && e.state === 'done';
+    }
+    return sim.tick >= f.at;
+  }
+
+  countOf(hits) {
+    let c = 0;
+    hits.forEach(h => h.lines.forEach(l => { if (l.hit) c += l.segs.filter(x => x.m).length; }));
+    return c;
+  }
+
+  results(sim) {
+    const sc = this.scope(sim.origin, sim.just);
+    return this.D.files
+      .filter(f => this.inScope(sc, f.dir) && this.isRevealed(f, sim))
+      .map(f => {
+        const hits = sim.ocr ? f.hits : f.hits.filter(h => !h.ocr);
+        return Object.assign({}, f, { hits: hits, count: this.countOf(hits) });
+      })
+      .filter(f => f.nameSegs || f.hits.length)
+      .sort((a, b) => ((a.nameSegs ? 0 : 1) - (b.nameSegs ? 0 : 1)) || (b.count - a.count) || (a.order - b.order));
+  }
+
+  parts(segs, trim, outline) {
+    const out = [];
+    segs.forEach((s, i) => {
+      const t = trim && i === 0 ? s.t.replace(/^\s+/, '') : s.t;
+      if (t) out.push({ t: t, st: s.m ? (outline ? this.S.outline : this.S.mark) : this.S.plain });
+    });
+    return out;
+  }
+
+  badgeStyle(ext) {
+    const c = { pdf: ['#FDE7E9', '#A4262C'], docx: ['#E6EEFA', '#1B5BAE'], doc: ['#E6EEFA', '#1B5BAE'], xlsx: ['#E3F2E8', '#0E6B38'], pptx: ['#FBE9E0', '#A63D1E'], jpg: ['#EFE7F7', '#6B2FA0'], png: ['#EFE7F7', '#6B2FA0'], mp4: ['#E4F1F4', '#0B5D6B'] }[ext] || ['#EEEEEE', '#424242'];
+    return 'flex: 0 0 auto; box-sizing: border-box; width: 40px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: 0.3px; background: ' + c[0] + '; color: ' + c[1];
+  }
+
+  toggleStyle(on) {
+    return 'flex: 0 0 auto; width: 36px; height: 36px; box-sizing: border-box; padding: 0; border-radius: 4px; cursor: pointer; font-family: \'Cascadia Mono\', \'Cascadia Code\', Consolas, \'JetBrains Mono\', monospace; font-size: 14px; font-weight: 600; '
+      + (on ? 'background: #E1ECF8; border: 1px solid #005FB8; color: #005FB8' : 'background: #FFFFFF; border: 1px solid #D1D1D1; color: #3B3B3B');
+  }
+
+  countText(c) {
+    return c === 0 ? 'Name only' : c === 1 ? '1 match' : c + ' matches';
+  }
+
+  fmt(n) {
+    return Number(n).toLocaleString('en-US');
+  }
+
+  dur(sec) {
+    if (sec < 60) return Math.max(1, Math.round(sec)) + ' s';
+    return Math.floor(sec / 60) + ' min ' + String(Math.floor(sec % 60)).padStart(2, '0') + ' s';
+  }
+
+  elapsed(sec) {
+    if (sec < 60) return sec.toFixed(1) + ' s';
+    return Math.floor(sec / 60) + ' min ' + String(Math.floor(sec % 60)).padStart(2, '0') + ' s';
+  }
+
+  fileVM(f, hoverKey, sc, s) {
+    const open = !!s.expanded[f.id] && f.hits.length > 0;
+    const shown = open ? f.hits.slice(0, s.showAll[f.id] ? f.hits.length : 4) : [];
+    const rest = open ? f.hits.length - shown.length : 0;
+    const key = (open ? 'g:' : 'f:') + f.id;
+    const first = f.hits[0];
+    const hitLine = first ? first.lines.find(l => l.hit) : null;
+    return {
+      isHeader: false,
+      isFile: true,
+      label: '',
+      hasChevron: f.hits.length > 0,
+      noChevron: f.hits.length === 0,
+      chevStyle: 'display: block; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; transition: transform 120ms ease; transform: rotate(' + (open ? '0deg' : '-90deg') + ')',
+      toggleLabel: (open ? 'Hide matches in ' : 'List every match in ') + f.name,
+      expandedAttr: open ? 'true' : 'false',
+      toggle: () => this.toggleSet('expanded', f.id),
+      badge: f.ext.toUpperCase(),
+      badgeStyle: this.badgeStyle(f.ext),
+      nameParts: this.parts(f.nameSegs || [{ t: f.name, m: false }], false),
+      dir: sc.show + f.dir,
+      showFirst: !!first && !open,
+      noHits: !first,
+      noHitsText: 'Matched by name · no text inside to search',
+      firstLoc: first ? first.loc : '',
+      firstParts: hitLine ? this.parts(hitLine.segs, true) : [],
+      count: this.countText(f.count),
+      countStyle: this.S.count,
+      rowStyle: this.S.head + (hoverKey === key ? this.S.hoverBg : 'transparent'),
+      open: () => this.openFile(f),
+      enter: e => (open ? this.setState({ hover: { key: key, pos: 'top: 0px' } }) : this.enter(key, e)),
+      leave: () => this.leave(),
+      showHits: shown.length > 0,
+      hits: shown.map((h, i) => this.hitVM(f, h, i, hoverKey, false)),
+      hasMore: rest > 0,
+      moreLabel: 'Show ' + rest + ' more matching ' + (rest === 1 ? 'line' : 'lines'),
+      showMore: () => this.toggleSet('showAll', f.id)
+    };
+  }
+
+  hitVM(f, h, i, hoverKey, flat) {
+    const key = 'h:' + f.id + ':' + i;
+    const line = h.lines.find(l => l.hit);
+    return {
+      loc: h.loc,
+      parts: this.parts(line.segs, true),
+      rowStyle: (flat ? this.S.hitFlat : this.S.hit) + (hoverKey === key ? this.S.hoverBg : 'transparent'),
+      open: () => this.openFile(f),
+      enter: e => this.enter(key, e),
+      leave: () => this.leave()
+    };
+  }
+
+  activeVM(f, sc, sim) {
+    const mbps = f.sizeMB * f.rate / 100 / 0.12;
+    const left = (100 - f.pct) / f.rate * 0.12;
+    const work = sim.ocr && f.pages
+      ? 'Reading scanned pages · page ' + Math.max(1, Math.floor(f.pct * f.pages / 100)) + ' of ' + f.pages
+      : Math.floor(f.pct) + '% · ' + (mbps >= 10 ? Math.round(mbps) : mbps.toFixed(1)) + ' MB/s';
+    return {
+      badge: f.ext.toUpperCase(),
+      badgeStyle: this.badgeStyle(f.ext),
+      name: f.name,
+      size: f.size,
+      dir: sc.show + f.dir,
+      full: sc.show + f.dir + '\\' + f.name,
+      pct: f.pct.toFixed(1),
+      stats: work + ' · about ' + this.dur(left) + ' left',
+      skip: () => this.skip(f.id),
+      skipLabel: 'Skip ' + f.name
+    };
+  }
+
+  popupVM(s, sc, byId) {
+    const none = { show: false, title: '', sub: '', blocks: [], hasMore: false, more: '', pos: 'top: 0px' };
+    if (!s.hover || !s.sim) return none;
+    const k = s.hover.key.split(':');
+    const f = byId[k[1]];
+    if (!f || !f.hits.length || (k[0] !== 'f' && k[0] !== 'h')) return none;
+    const hits = k[0] === 'f' ? f.hits.slice(0, 2) : [f.hits[Number(k[2])]];
+    if (!hits[0]) return none;
+    const more = k[0] === 'f' ? f.hits.length - hits.length : 0;
+    return {
+      show: true,
+      title: f.name,
+      sub: sc.show + f.dir,
+      blocks: hits.map(h => ({
+        loc: h.loc,
+        isImage: !!h.ocr,
+        imgStyle: h.ocr === 'screen' ? this.S.imgScreen : this.S.imgPaper,
+        imgCaption: 'Preview of the picture · match outlined',
+        imgLines: h.ocr ? h.lines.map(l => ({ parts: this.parts(l.segs, false, true) })) : [],
+        lines: h.lines.map(l => ({ n: String(l.n), bg: l.hit ? 'background: #FFF6D5' : 'background: transparent', parts: this.parts(l.segs, false) }))
+      })),
+      hasMore: more > 0,
+      more: '+' + more + ' more matching ' + (more === 1 ? 'line' : 'lines') + ' in this file · use the arrow to list them all',
+      pos: s.hover.pos
+    };
+  }
+
+  enter(key, e) {
+    const row = e && e.currentTarget;
+    let pos = 'top: 56px';
+    if (row) {
+      let list = row.parentElement;
+      while (list && !(list.hasAttribute && list.hasAttribute('data-list'))) list = list.parentElement;
+      if (list) {
+        const wrapH = list.offsetParent ? list.offsetParent.clientHeight : 600;
+        const top = list.offsetTop + row.offsetTop - list.scrollTop;
+        pos = top > wrapH * 0.55
+          ? 'bottom: ' + Math.round(wrapH - top + 4) + 'px'
+          : 'top: ' + Math.round(top + row.offsetHeight + 4) + 'px';
+      }
+    }
+    const cur = this.state.hover;
+    if (!cur || cur.key !== key || cur.pos !== pos) this.setState({ hover: { key: key, pos: pos } });
+  }
+
+  leave() {
+    if (this.state.hover) this.setState({ hover: null });
+  }
+
+  toggleSet(field, id) {
+    const m = Object.assign({}, this.state[field]);
+    m[id] = !m[id];
+    const patch = { hover: null };
+    patch[field] = m;
+    this.setState(patch);
+  }
+
+  skip(id) {
+    const sim = this.state.sim;
+    if (!sim) return;
+    const slow = sim.slow.map(f => (f.id === id && f.state === 'active' ? Object.assign({}, f, { state: 'skipped' }) : f));
+    this.setState({ sim: Object.assign({}, sim, { slow: slow }) });
+  }
+
+  startSearch() {
+    const s = this.state;
+    const q = s.query || '';
+    if (!q.trim()) {
+      this.setState({ error: 'Type some text or a regular expression first.' });
+      return;
+    }
+    if (s.regex) {
+      try {
+        new RegExp(q, s.matchCase ? '' : 'i');
+      } catch (err) {
+        this.setState({ error: String(err && err.message ? err.message : err) });
+        return;
+      }
+    }
+    const o = this.opts();
+    this.setState({ error: '', hover: null, expanded: {}, showAll: {}, scopeChanged: false, sim: this.freshSim(o.origin, o.origin === 'file' && !!s.justFile, s.ocr) });
+  }
+
+  stopSearch() {
+    const sim = this.state.sim;
+    if (sim && sim.running) this.setState({ sim: Object.assign({}, sim, { running: false, stopped: true }) });
+  }
+
+  openFile(f) {
+    this.showToast('Opens File Explorer in ' + this.D.root + '\\' + f.dir + ' with “' + f.name + '” selected');
+  }
+
+  showToast(msg) {
+    clearTimeout(this.toastTimer);
+    this.setState({ toast: msg });
+    this.toastTimer = setTimeout(() => this.setState({ toast: '' }), 2800);
+  }
+
+  renderVals() {
+    const s = this.state || {};
+    const o = this.opts();
+    const sim = s.sim;
+    const running = !!(sim && sim.running);
+    const just = o.origin === 'file' && !!s.justFile;
+    const sc = this.scope(o.origin, sim ? sim.just : just);
+    const hoverKey = s.hover ? s.hover.key : '';
+    const root = this.D.root;
+    const sel = this.D.byId.billlog;
+
+    const items = [];
+    let flatHits = [];
+    let nameCount = 0;
+    let matchCount = 0;
+    let fileCount = 0;
+    const byId = {};
+    if (sim && sim.just) {
+      const e = sim.slow[0];
+      const n = e.state === 'done' ? sel.hits.length : Math.floor(sel.hits.length * e.pct / 100);
+      const visible = Object.assign({}, sel, { hits: sel.hits.slice(0, n) });
+      byId[sel.id] = visible;
+      flatHits = visible.hits.map((h, i) => this.hitVM(visible, h, i, hoverKey, true));
+      matchCount = n;
+      fileCount = n ? 1 : 0;
+    } else if (sim) {
+      const files = this.results(sim);
+      files.forEach(f => {
+        byId[f.id] = f;
+        matchCount += f.count;
+        if (f.count) fileCount += 1;
+      });
+      const named = files.filter(f => f.nameSegs);
+      const other = files.filter(f => !f.nameSegs);
+      nameCount = named.length;
+      const header = label => ({ isHeader: true, isFile: false, label: label, hits: [], nameParts: [], firstParts: [] });
+      if (named.length) {
+        items.push(header('File names · ' + named.length));
+        named.forEach(f => items.push(this.fileVM(f, hoverKey, sc, s)));
+      }
+      if (other.length) {
+        items.push(header('Contents · ' + other.length + (other.length === 1 ? ' file' : ' files')));
+        other.forEach(f => items.push(this.fileVM(f, hoverKey, sc, s)));
+      }
+    }
+
+    let panel;
+    let skippedCount = 0;
+    if (!sim) {
+      panel = {
+        title: 'Files being searched', threads: this.D.threads + ' threads', showBar: false, pct: 0, counts: '',
+        active: [], showNote: true,
+        note: 'Press Enter or Search to start. Files that take more than half a second show up here with a progress bar and a Skip button.',
+        hasSkipped: false, skippedTitle: '', skipped: []
+      };
+    } else {
+      const finished = sim.slow.filter(f => f.state === 'done' || f.state === 'skipped').length;
+      const filesDone = sim.smallDone + finished;
+      const skipped = sim.slow.filter(f => f.state === 'skipped');
+      const active = running ? sim.slow.filter(f => f.state === 'active' && (sim.just || sim.tick - f.since >= 4)).map(f => this.activeVM(f, sc, sim)) : [];
+      skippedCount = skipped.length;
+      panel = {
+        title: running ? 'Searching now' : sim.stopped ? 'Search stopped' : 'Search complete',
+        threads: this.D.threads + ' threads',
+        showBar: true,
+        pct: Math.round(100 * filesDone / sim.total),
+        counts: this.fmt(filesDone) + ' of ' + this.fmt(sim.total) + (sim.total === 1 ? ' file' : ' files'),
+        active: active,
+        showNote: active.length === 0,
+        note: running ? 'Working through small files…' : sim.stopped ? 'Stopped before every file was searched.' : skipped.length ? 'Every file was searched except the skipped ones below.' : 'Every file in scope was searched.',
+        hasSkipped: skipped.length > 0,
+        skippedTitle: 'Skipped · ' + skipped.length,
+        skipped: skipped.map(f => ({ label: f.name + ' · ' + f.size + ' · stopped at ' + Math.floor(f.pct) + '%' }))
+      };
+    }
+
+    const time = sim ? this.elapsed(sim.tick * 0.12) : '';
+    const status = {
+      left: !sim ? (s.scopeChanged ? 'Scope changed · press Enter to search' : 'Ready · press Enter to search') : running ? 'Searching… ' + time : sim.stopped ? 'Stopped after ' + time : 'Finished in ' + time,
+      counts: !sim ? '' : sim.just
+        ? matchCount + (matchCount === 1 ? ' match' : ' matches') + ' in this file'
+        : (nameCount ? nameCount + (nameCount === 1 ? ' name match · ' : ' name matches · ') : '') + matchCount + (matchCount === 1 ? ' match' : ' matches') + ' in ' + fileCount + (fileCount === 1 ? ' file' : ' files'),
+      hasSkipped: skippedCount > 0,
+      skipped: skippedCount + ' skipped · results may be incomplete'
+    };
+
+    const empty = !items.length && !flatHits.length;
+    return {
+      rootMinH: o.embedded ? '0' : '100vh',
+      showChrome: !o.embedded,
+      windowTitle: o.origin === 'file' ? 'WinDeepSearch — ' + sel.name : 'WinDeepSearch — Acme',
+      scopeFolder: o.origin === 'folder',
+      scopeFile: o.origin === 'file',
+      scopeApp: o.origin === 'app',
+      rootPath: root,
+      selectedPath: root + '\\logs\\' + sel.name,
+      justFile: !!s.justFile,
+      showParentScope: o.origin === 'file' && !s.justFile,
+      parentScopeText: 'Unticked, so this searches ' + root + '\\logs and all its subfolders',
+      scopeText: s.scopeText,
+      query: s.query,
+      regexPressed: s.regex ? 'true' : 'false',
+      casePressed: s.matchCase ? 'true' : 'false',
+      ocrPressed: s.ocr ? 'true' : 'false',
+      regexStyle: this.toggleStyle(s.regex),
+      caseStyle: this.toggleStyle(s.matchCase),
+      ocrStyle: this.toggleStyle(s.ocr),
+      running: running,
+      notRunning: !running,
+      goLabel: running ? 'Stop' : 'Search',
+      goStyle: 'flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; box-sizing: border-box; height: 36px; padding: 0 16px; border-radius: 4px; cursor: pointer; font: inherit; font-weight: 600; '
+        + (running ? 'background: #FFFFFF; color: #1B1B1B; border: 1px solid #D1D1D1' : 'background: #005FB8; color: #FFFFFF; border: 1px solid #005FB8'),
+      hasError: !!s.error,
+      error: s.error,
+      listHeading: sim && sim.just ? 'Matches in ' + sel.name : 'Results',
+      showEmpty: empty,
+      emptyText: !sim ? 'Results show up here. Hover a result to see the lines around each match; click it to open its folder in File Explorer.' : running ? 'Searching…' : 'No matches.',
+      showItems: items.length > 0,
+      items: items,
+      showFlat: flatHits.length > 0,
+      flatHits: flatHits,
+      pop: this.popupVM(s, sc, byId),
+      panel: panel,
+      status: status,
+      hasToast: !!s.toast,
+      toast: s.toast,
+      onQuery: e => this.setState({ query: e.target.value, error: '' }),
+      onKey: e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.startSearch();
+        }
+      },
+      toggleRegex: () => this.setState({ regex: !this.state.regex, error: '' }),
+      toggleCase: () => this.setState({ matchCase: !this.state.matchCase }),
+      toggleOcr: () => this.setState({ ocr: !this.state.ocr }),
+      go: () => (this.state.sim && this.state.sim.running ? this.stopSearch() : this.startSearch()),
+      toggleJust: () => this.setState({ justFile: !this.state.justFile, sim: null, hover: null, scopeChanged: true }),
+      onScopeText: e => this.setState({ scopeText: e.target.value }),
+      browse: () => this.showToast('Opens the Windows folder picker'),
+      onListScroll: () => this.leave()
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WinDeepSearch right-click entry</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="width: 1000px; height: 620px; box-sizing: border-box; padding: 40px 48px; display: flex; flex-direction: column; gap: 24px; background: #DCE4EC; color: #1B1B1B; font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Open Sans', sans-serif">
+
+<div style="display: flex; gap: 64px; align-items: flex-start">
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 15px; font-weight: 600">Windows 11 menu · shows straight away</div>
+<div style="width: 300px; box-sizing: border-box; padding: 4px; background: #F9F9F9; border: 1px solid #D6D6D6; border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18); font-size: 13px">
+<div style="display: flex; justify-content: space-around; padding: 2px 4px 4px">
+<sc-for list="{{ topIcons }}" as="ic" hint-placeholder-count="5">
+<span title="{{ ic.label }}" style="width: 36px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px"><svg viewBox="0 0 16 16" width="16" height="16" role="img" aria-label="{{ ic.label }}" style="display: block; fill: none; stroke: #1B1B1B; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round"><path d="{{ ic.d }}"></path></svg></span>
+</sc-for>
+</div>
+<div style="height: 1px; margin: 2px 0 4px; background: #E3E3E3"></div>
+<sc-for list="{{ modern }}" as="it" hint-placeholder-count="8">
+<div style="display: flex; align-items: center; gap: 12px; height: 30px; padding: 0 12px; border-radius: 4px">
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex: 0 0 auto; display: block; fill: none; stroke: #1B1B1B; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round"><path d="{{ it.d }}"></path></svg>
+<span style="flex: 1">{{ it.label }}</span>
+<span style="font-size: 12px; color: #6E6E6E">{{ it.keys }}</span>
+</div>
+</sc-for>
+<div style="height: 1px; margin: 4px 0; background: #E3E3E3"></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 30px; padding: 0 12px; border-radius: 4px; background: #E8E8E8; font-weight: 600">
+<span aria-hidden="true" style="flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 3px; background: #005FB8"><svg viewBox="0 0 16 16" width="11" height="11" style="display: block; fill: none; stroke: #FFFFFF; stroke-width: 2.2; stroke-linecap: round"><circle cx="7" cy="7" r="4.25"></circle><path d="M10.25 10.25 13.5 13.5"></path></svg></span>
+<span style="flex: 1">WinDeepSearch</span>
+</div>
+<div style="height: 1px; margin: 4px 0; background: #E3E3E3"></div>
+<div style="display: flex; align-items: center; gap: 12px; height: 30px; padding: 0 12px; border-radius: 4px">
+<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="flex: 0 0 auto; display: block; fill: none; stroke: #1B1B1B; stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round"><path d="M8.5 2.5h5v5M13.5 2.5 7 9M11.5 9.5v4h-9v-9h4"></path></svg>
+<span style="flex: 1">Show more options</span>
+<span style="font-size: 12px; color: #6E6E6E">Shift+F10</span>
+</div>
+</div>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="font-size: 15px; font-weight: 600">Show more options · classic menu</div>
+<div style="width: 280px; box-sizing: border-box; padding: 2px; background: #F2F2F2; border: 1px solid #A0A0A0; box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3); font-size: 12px">
+<sc-for list="{{ classicTop }}" as="it" hint-placeholder-count="3">
+<sc-if value="{{ it.sep }}" hint-placeholder-val="{{ false }}"><div style="height: 1px; margin: 3px 2px 3px 30px; background: #D0D0D0"></div></sc-if>
+<sc-if value="{{ it.item }}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; height: 22px; padding: 0 12px 0 32px"><span style="flex: 1">{{ it.label }}</span><span style="color: #3B3B3B">{{ it.arrow }}</span></div></sc-if>
+</sc-for>
+<div style="display: flex; align-items: center; gap: 8px; height: 22px; box-sizing: border-box; padding: 0 12px 0 8px; background: #CCE8FF; border: 1px solid #99D1FF">
+<span aria-hidden="true" style="flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 3px; background: #005FB8"><svg viewBox="0 0 16 16" width="11" height="11" style="display: block; fill: none; stroke: #FFFFFF; stroke-width: 2.2; stroke-linecap: round"><circle cx="7" cy="7" r="4.25"></circle><path d="M10.25 10.25 13.5 13.5"></path></svg></span>
+<span style="flex: 1; padding-left: 0">WinDeepSearch</span>
+</div>
+<sc-for list="{{ classicBottom }}" as="it" hint-placeholder-count="10">
+<sc-if value="{{ it.sep }}" hint-placeholder-val="{{ false }}"><div style="height: 1px; margin: 3px 2px 3px 30px; background: #D0D0D0"></div></sc-if>
+<sc-if value="{{ it.item }}" hint-placeholder-val="{{ true }}"><div style="display: flex; align-items: center; height: 22px; padding: 0 12px 0 32px"><span style="flex: 1">{{ it.label }}</span><span style="color: #3B3B3B">{{ it.arrow }}</span></div></sc-if>
+</sc-for>
+</div>
+</div>
+
+</div>
+
+<div style="margin-top: auto; font-size: 13px; color: #3B3B3B">The same entry appears when you right-click a file, a drive, or empty space inside an open folder.</div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const row = (label, arrow) => ({ item: true, sep: false, label: label, arrow: arrow || '' });
+    const sep = { item: false, sep: true, label: '', arrow: '' };
+    return {
+      topIcons: [
+        { label: 'Cut', d: 'M5 13.5a1.75 1.75 0 1 0 0-.01M11 13.5a1.75 1.75 0 1 0 0-.01M5.8 12 11 2.5M10.2 12 5 2.5' },
+        { label: 'Copy', d: 'M5.5 5.5h8v8h-8zM2.5 10.5v-8h8' },
+        { label: 'Rename', d: 'M1.5 5.5h13v5h-13zM9 3.5v9M7.5 3.5h3M7.5 12.5h3' },
+        { label: 'Share', d: 'M8 2.5v8M5 5.5l3-3 3 3M3.5 8.5v5h9v-5' },
+        { label: 'Delete', d: 'M2.5 4.5h11M6.5 4.5v-2h3v2M4 4.5l.7 9h6.6l.7-9' }
+      ],
+      modern: [
+        { label: 'Open', keys: 'Enter', d: 'M1.5 3.5h4.5l1.5 1.5h7v8h-13z' },
+        { label: 'Open in new tab', keys: '', d: 'M1.5 3.5h13v10h-13zM1.5 6.5h13M5.5 3.5v3' },
+        { label: 'Open in new window', keys: '', d: 'M4.5 2.5h9v8h-9zM2.5 5.5v8h8' },
+        { label: 'Pin to Quick access', keys: '', d: 'M6 2.5h4l-.5 4 2 2v1h-7v-1l2-2zM8 9.5v4' },
+        { label: 'Pin to Start', keys: '', d: 'M2.5 2.5h4.5v4.5h-4.5zM9 2.5h4.5v4.5h-4.5zM2.5 9h4.5v4.5h-4.5zM9 9h4.5v4.5h-4.5z' },
+        { label: 'Compress to ZIP file', keys: '', d: 'M3.5 1.5h9v13h-9zM8 1.5v1.5M8 4v1.5M8 6.5v1.5M7 9h2v2.5h-2z' },
+        { label: 'Copy as path', keys: 'Ctrl+Shift+C', d: 'M5.5 5.5h8v8h-8zM2.5 10.5v-8h8' },
+        { label: 'Properties', keys: 'Alt+Enter', d: 'M2.5 4h11M2.5 8h11M2.5 12h7' }
+      ],
+      classicTop: [row('Open'), row('Open in new window'), row('Pin to Quick access'), sep],
+      classicBottom: [
+        sep, row('Give access to', '›'), row('Restore previous versions'), row('Include in library', '›'), row('Pin to Start'),
+        sep, row('Send to', '›'),
+        sep, row('Cut'), row('Copy'),
+        sep, row('Create shortcut'), row('Delete'), row('Rename'),
+        sep, row('Properties')
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/WinDeepSearch.Core/WinDeepSearch.Core.csproj" />
+    <Project Path="src/WinDeepSearch/WinDeepSearch.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/WinDeepSearch.Core.Tests/WinDeepSearch.Core.Tests.csproj" />
+    <Project Path="tests/WinDeepSearch.UiTests/WinDeepSearch.UiTests.csproj" />
+  </Folder>
+</Solution>
