@@ -1,0 +1,326 @@
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using FlaUI.Core;
+using FlaUI.Core.AutomationElements;
+using FlaUI.Core.Capturing;
+using FlaUI.Core.Conditions;
+using FlaUI.Core.Definitions;
+using FlaUI.Core.Input;
+using FlaUI.Core.Tools;
+using FlaUI.Core.WindowsAPI;
+using FlaUI.UIA3;
+using Microsoft.Win32;
+using WinDeepSearch.Tests;
+using Xunit;
+
+namespace WinDeepSearch.UiTests;
+
+/// <summary>
+/// Uses the installed app the way a person does: from Explorer, the search bar, the mouse. All tests are in
+/// this one class so xunit runs them one after another; they share the screen.
+/// </summary>
+public sealed class UiTests : IDisposable
+{
+    const string InvoiceRegex = @"invoice\s*#?(?=\d{4})";
+
+    static readonly string AppExe = Environment.GetEnvironmentVariable("WDS_APP")
+        ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "WinDeepSearch", "WinDeepSearch.exe");
+    static readonly string Shots = Environment.GetEnvironmentVariable("WDS_SCREENSHOTS") ?? Path.Combine(Path.GetTempPath(), "wds-screenshots");
+
+    readonly UIA3Automation _automation = new();
+    readonly string _dir = Path.Combine(Directory.CreateTempSubdirectory("wds-ui-").FullName, "Acme");
+
+    public UiTests()
+    {
+        Directory.CreateDirectory(_dir);
+        Directory.CreateDirectory(Shots);
+        var log = Enumerable.Range(1, 28).Select(i => i % 4 == 2 ? $"10:{i:00}:00 INFO Created Invoice #{4000 + i} for account 0093" : $"10:{i:00}:00 DEBUG step {i}");
+        File.WriteAllLines(Path.Combine(_dir, "billing.log"), log);
+        File.WriteAllText(Path.Combine(_dir, "Invoice 2041.txt"), "nothing relevant inside");
+        Fixtures.Docx(Path.Combine(_dir, "letter.docx"), ["Dear customer,", "Please pay Invoice #2041 by Friday.", "Thanks"]);
+        Fixtures.Pdf(Path.Combine(_dir, "contract.pdf"), ["7. Billing", "The first invoice is Invoice #1001.", "8. Term"]);
+        File.WriteAllBytes(Path.Combine(_dir, "scan.png"), Fixtures.TextPicture("Quarterly report", "Invoice 2041 overdue"));
+    }
+
+    public void Dispose()
+    {
+        foreach (var process in Process.GetProcessesByName("WinDeepSearch")) process.Kill();
+        _automation.Dispose();
+    }
+
+    [Fact]
+    public void SearchFromAFolderRanksResultsShowsContextAndOpensExplorer()
+    {
+        var window = Launch("--path", _dir);
+        Search(window, InvoiceRegex, regex: true);
+
+        var names = ResultNames(window);
+        Assert.Contains("File names · 1", names);
+        Assert.Contains("Invoice 2041.txt · Name only", names);
+        Assert.Contains("billing.log · 7 matches", names);
+        Assert.Contains("letter.docx · 1 match", names);
+        Assert.Contains("contract.pdf · 1 match", names);
+        Assert.Contains("scan.png · 1 match", names);
+        Assert.True(names.IndexOf("billing.log · 7 matches") < names.IndexOf("letter.docx · 1 match"), "Files with more matches come first.");
+        Shot(window, "01-results");
+
+        // Hovering a file shows the lines around its first matches.
+        Mouse.MoveTo(Item(window, "billing.log").GetClickablePoint());
+        var tip = WaitForToolTip();
+        Assert.Contains(Texts(tip), t => t.Contains("Created Invoice #4002"));
+        Assert.Contains(Texts(tip), t => t.Contains("DEBUG step 1"));
+        ShotScreen("02-hover-context");
+
+        // Text read from a picture comes with the picture.
+        Mouse.MoveTo(Item(window, "scan.png").GetClickablePoint());
+        tip = WaitForToolTip();
+        Retry.WhileNull(() => tip.FindFirstDescendant(cf => cf.ByControlType(ControlType.Image)), TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Thread.Sleep(500);
+        ShotScreen("03-hover-picture");
+
+        // The arrow lists four matching lines, and "Show 3 more" the rest.
+        Item(window, "billing.log").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
+        names = ResultNames(window);
+        Assert.Equal(4, names.Count(n => n.StartsWith("Line ")));
+        Item(window, "Show 3 more matching lines").Click();
+        Retry.WhileFalse(() => ResultNames(window).Count(n => n.StartsWith("Line ")) == 7, TimeSpan.FromSeconds(5), throwOnTimeout: true);
+        Shot(window, "04-expanded");
+
+        // Clicking a match opens File Explorer on the file's folder.
+        Item(window, "Line 2 ·").Click();
+        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+        explorer.Close();
+    }
+
+    [Fact]
+    public void StartedFromAFileCanSearchJustThatFile()
+    {
+        var window = Launch("--path", Path.Combine(_dir, "billing.log"));
+        var justThisFile = window.FindFirstDescendant(cf => cf.ByAutomationId("JustThisFile")).AsCheckBox();
+        Assert.False(justThisFile.IsChecked);
+
+        justThisFile.IsChecked = true;
+        Search(window, "Invoice", regex: false);
+
+        var names = ResultNames(window);
+        Assert.Contains("billing.log · 7 matches", names);
+        Assert.Equal(7, names.Count(n => n.StartsWith("Line ")));
+        Assert.DoesNotContain(names, n => n.StartsWith("letter.docx"));
+        Shot(window, "05-just-this-file");
+    }
+
+    [Fact]
+    public void ASlowFileShowsProgressAndCanBeSkipped()
+    {
+        string dir = Directory.CreateTempSubdirectory("wds-skip-").FullName;
+        File.WriteAllText(Path.Combine(dir, "small.txt"), "needle");
+        using (var huge = File.Create(Path.Combine(dir, "huge.log")))
+        {
+            var block = new byte[16 * 1024 * 1024];
+            Array.Fill(block, (byte)'x');
+            for (int i = 0; i < 160; i++) huge.Write(block); // 2.5 GB
+        }
+
+        var window = Launch("--path", dir);
+        Search(window, "needle", regex: false, waitForFinish: false);
+        var skip = Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByName("Skip huge.log")), TimeSpan.FromSeconds(60), throwOnTimeout: true).Result;
+        Shot(window, "06-searching");
+        skip.AsButton().Invoke();
+
+        WaitForFinish(window);
+        Assert.Contains(Texts(window.FindFirstDescendant(cf => cf.ByAutomationId("SkippedList"))), t => t.StartsWith("huge.log · stopped at"));
+        Assert.Contains("small.txt · 1 match", ResultNames(window));
+        Shot(window, "07-skipped");
+    }
+
+    [Fact]
+    public void MainAppSearchesAnyFolderAndKeepsHistoryAndSettings()
+    {
+        var window = Launch();
+        var scope = window.FindFirstDescendant(cf => cf.ByAutomationId("ScopeBox")).AsTextBox();
+        Assert.Equal(@"C:\", scope.Text);
+        Shot(window, "08-main-app");
+
+        scope.Text = _dir;
+        Search(window, "Invoice #2041", regex: false);
+        Assert.Contains("letter.docx · 1 match", ResultNames(window));
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")).Click();
+        var history = Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("HistoryList"))?.AsListBox(), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
+        Retry.WhileFalse(() => history.Items.Any(i => i.Name.StartsWith("Invoice #2041")), TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Retry.WhileFalse(() => window.FindFirstDescendant(cf => cf.ByAutomationId("SavedFiles")).AsListBox().Items.Length > 0, TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Shot(window, "09-history");
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).Click();
+        Assert.Contains(".git", Texts(window.FindFirstDescendant(cf => cf.ByAutomationId("IgnoredList"))));
+        Assert.Equal("3", window.FindFirstDescendant(cf => cf.ByAutomationId("ContextLines")).Name);
+        Shot(window, "10-settings");
+    }
+
+    [Fact]
+    public void FollowsTheWindowsDarkTheme()
+    {
+        const string key = @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
+        using var personalize = Registry.CurrentUser.CreateSubKey(key);
+        object? previous = personalize.GetValue("AppsUseLightTheme");
+        personalize.SetValue("AppsUseLightTheme", 0, RegistryValueKind.DWord);
+        try
+        {
+            var window = Launch("--path", _dir);
+            Search(window, InvoiceRegex, regex: true);
+            Item(window, "billing.log").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
+            Mouse.MoveTo(Item(window, "Line 2 ·").GetClickablePoint());
+            WaitForToolTip();
+            ShotScreen("11-dark");
+        }
+        finally
+        {
+            if (previous == null) personalize.DeleteValue("AppsUseLightTheme", throwOnMissingValue: false);
+            else personalize.SetValue("AppsUseLightTheme", previous, RegistryValueKind.DWord);
+        }
+    }
+
+    [Fact]
+    public void ExplorerRightClickMenusOpenASearchWindow()
+    {
+        Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_dir}\"") { UseShellExecute = true });
+        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+        try
+        {
+            var file = Retry.WhileNull(() => explorer.FindFirstDescendant(cf => cf.ByControlType(ControlType.ListItem).And(cf.ByName("billing.log"))),
+                TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+
+            // Windows 11 menu.
+            file.RightClick();
+            var entry = WaitForMenuItem();
+            ShotScreen("12-windows11-menu");
+            entry.Click();
+            var window = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — billing.log"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+            Shot(window, "13-opened-from-menu");
+            window.Close();
+
+            // "Show more options" (classic) menu, which Shift+F10 opens directly.
+            file.Click();
+            Keyboard.TypeSimultaneously(VirtualKeyShort.SHIFT, VirtualKeyShort.F10);
+            entry = WaitForMenuItem();
+            ShotScreen("14-classic-menu");
+            entry.Click();
+            Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — billing.log"), TimeSpan.FromSeconds(30), throwOnTimeout: true);
+        }
+        finally
+        {
+            explorer.Close();
+        }
+    }
+
+    [Fact]
+    public void MenuCommandOpensADriveRootCorrectly()
+    {
+        // Calls the installed menu command directly, as Explorer does, for "C:\": the trailing backslash must
+        // not swallow the closing quote of the argument.
+        string dll = Path.Combine(Path.GetDirectoryName(AppExe)!, "WinDeepSearch.ShellExt.dll");
+        var library = NativeLibrary.Load(dll);
+        var getClassObject = Marshal.GetDelegateForFunctionPointer<DllGetClassObject>(NativeLibrary.GetExport(library, "DllGetClassObject"));
+        var clsid = new Guid("2CADCD13-EDE6-4B0F-94BB-2C46DF5954F1");
+        var factoryId = typeof(IClassFactory).GUID;
+        Marshal.ThrowExceptionForHR(getClassObject(ref clsid, ref factoryId, out var factoryPointer));
+        var factory = (IClassFactory)Marshal.GetObjectForIUnknown(factoryPointer);
+        var commandId = typeof(IExplorerCommand).GUID;
+        Marshal.ThrowExceptionForHR(factory.CreateInstance(0, ref commandId, out var commandPointer));
+        var command = (IExplorerCommand)Marshal.GetObjectForIUnknown(commandPointer);
+
+        Marshal.ThrowExceptionForHR(command.GetTitle(0, out var title));
+        Assert.Equal("WinDeepSearch", Marshal.PtrToStringUni(title));
+        Marshal.FreeCoTaskMem(title);
+
+        var itemId = new Guid("43826d1e-e718-42ee-bc55-a1e261c37bfe"); // IShellItem
+        Marshal.ThrowExceptionForHR(SHCreateItemFromParsingName(@"C:\", 0, ref itemId, out var item));
+        var arrayId = new Guid("b63ea76d-1f85-456f-a19c-48159efa858b"); // IShellItemArray
+        Marshal.ThrowExceptionForHR(SHCreateShellItemArrayFromShellItem(item, ref arrayId, out var items));
+        Marshal.ThrowExceptionForHR(command.Invoke(items, 0));
+
+        var window = Retry.WhileNull(() => SearchWindowTitled(@"WinDeepSearch — C:\"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+        Assert.Contains(@"C:\", Texts(window));
+    }
+
+    Window Launch(params string[] args)
+    {
+        var start = new ProcessStartInfo(AppExe);
+        foreach (var arg in args) start.ArgumentList.Add(arg);
+        var app = Application.Launch(start);
+        var window = app.GetMainWindow(_automation, TimeSpan.FromSeconds(60));
+        Assert.NotNull(window);
+        return window;
+    }
+
+    void Search(Window window, string text, bool regex, bool waitForFinish = true)
+    {
+        window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox().Text = text;
+        var toggle = window.FindFirstDescendant(cf => cf.ByAutomationId("RegexToggle")).AsToggleButton();
+        if ((toggle.ToggleState == ToggleState.On) != regex) toggle.Toggle();
+        window.FindFirstDescendant(cf => cf.ByAutomationId("SearchButton")).AsButton().Invoke();
+        if (waitForFinish) WaitForFinish(window);
+    }
+
+    static void WaitForFinish(Window window)
+    {
+        var status = window.FindFirstDescendant(cf => cf.ByAutomationId("StatusText"));
+        // The first search also loads the OCR models.
+        Retry.WhileFalse(() => status.Name.StartsWith("Finished"), TimeSpan.FromMinutes(5), TimeSpan.FromMilliseconds(250), throwOnTimeout: true);
+    }
+
+    static List<string> ResultNames(Window window) =>
+        window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.Select(i => i.Name).ToList();
+
+    static ListBoxItem Item(Window window, string prefix) =>
+        Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.FirstOrDefault(i => i.Name.StartsWith(prefix)),
+            TimeSpan.FromSeconds(10), throwOnTimeout: true).Result!;
+
+    AutomationElement WaitForToolTip() =>
+        Retry.WhileNull(() => _automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
+
+    AutomationElement WaitForMenuItem() =>
+        Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("WinDeepSearch"))),
+            TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+
+    Window? ExplorerWindow(string title) =>
+        _automation.GetDesktop().FindFirstChild(cf => cf.ByClassName("CabinetWClass").And(cf.ByName(title)))?.AsWindow();
+
+    Window? SearchWindowTitled(string title) =>
+        _automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.Window).And(cf.ByName(title)))?.AsWindow();
+
+    static List<string> Texts(AutomationElement element) =>
+        element.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.Name).Where(n => !string.IsNullOrEmpty(n)).ToList();
+
+    static void Shot(AutomationElement element, string name) => Capture.Element(element).ToFile(Path.Combine(Shots, name + ".png"));
+
+    static void ShotScreen(string name) => Capture.Screen().ToFile(Path.Combine(Shots, name + ".png"));
+
+    delegate int DllGetClassObject(ref Guid clsid, ref Guid iid, out nint factory);
+
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    static extern int SHCreateItemFromParsingName(string path, nint bindContext, ref Guid iid, out nint item);
+
+    [DllImport("shell32.dll")]
+    static extern int SHCreateShellItemArrayFromShellItem(nint item, ref Guid iid, out nint array);
+
+    [ComImport, Guid("00000001-0000-0000-C000-000000000046"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IClassFactory
+    {
+        [PreserveSig] int CreateInstance(nint outer, ref Guid iid, out nint instance);
+        [PreserveSig] int LockServer(bool lockServer);
+    }
+
+    [ComImport, Guid("a08ce4d0-fa25-44ab-b57c-c7b1c323e0b9"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IExplorerCommand
+    {
+        [PreserveSig] int GetTitle(nint items, out nint name);
+        [PreserveSig] int GetIcon(nint items, out nint icon);
+        [PreserveSig] int GetToolTip(nint items, out nint tip);
+        [PreserveSig] int GetCanonicalName(out Guid name);
+        [PreserveSig] int GetState(nint items, bool okToBeSlow, out int state);
+        [PreserveSig] int Invoke(nint items, nint bindContext);
+        [PreserveSig] int GetFlags(out int flags);
+        [PreserveSig] int EnumSubCommands(out nint commands);
+    }
+}
