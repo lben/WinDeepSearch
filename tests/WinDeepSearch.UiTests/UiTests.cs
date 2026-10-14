@@ -100,7 +100,8 @@ public sealed class UiTests : IDisposable
         Item(window, "Line 2 ·").Click();
         var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
         var selected = Retry.WhileNull(() => ExplorerSelection(_dir), TimeSpan.FromSeconds(20)).Result;
-        Assert.Equal(Path.Combine(_dir, "billing.log"), selected);
+        ShotScreen("05b-explorer-selection");
+        Assert.True(selected == Path.Combine(_dir, "billing.log"), $"Selected: {selected ?? "nothing"}. Explorer windows: {DescribeExplorerWindows()}");
         explorer.Close();
     }
 
@@ -443,6 +444,24 @@ public sealed class UiTests : IDisposable
             }
         }
         return null;
+    }
+
+    static string DescribeExplorerWindows()
+    {
+        var found = new List<string>();
+        dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!)!;
+        foreach (dynamic window in shell.Windows())
+        {
+            try
+            {
+                found.Add($"{(string)window.LocationURL} [{(int)window.Document.SelectedItems().Count} selected]");
+            }
+            catch (Exception e)
+            {
+                found.Add("? " + e.GetType().Name + ": " + e.Message);
+            }
+        }
+        return found.Count == 0 ? "none" : string.Join(" | ", found);
     }
 
     static List<string> Texts(AutomationElement element) =>
