@@ -329,6 +329,12 @@ public sealed class UiTests : IDisposable
             var background = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
             Shot(background, "15-from-folder-background");
         }
+        catch
+        {
+            // This test has timed out once in CI without a picture of the step that failed.
+            ShotScreen("explorer-menu-failure");
+            throw;
+        }
         finally
         {
             explorer.Close();
