@@ -102,6 +102,33 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task AnAnsiFileWhoseAccentsComeLateIsStillReadAsAnsi()
+    {
+        // Like an Excel "CSV (Comma delimited)" export: plain ASCII rows first, the first accented letter far in.
+        var rows = Enumerable.Range(1, 400).Select(i => $"row {i},plain ascii text,{i * 3}").Append("row 999,café crème,1");
+        File.WriteAllBytes(PathOf("export.csv"), Encoding.Latin1.GetBytes(string.Join("\r\n", rows)));
+
+        var hit = Single(await Search("café crème"), "export.csv").Hits.Single();
+        Assert.Equal("Line 401", hit.Location);
+        Assert.Contains("row 400,plain ascii text,1200", hit.Context.Select(c => c.Text));
+    }
+
+    [Fact]
+    public async Task APatternThatTimesOutOnAFileNameOnlySkipsThatFile()
+    {
+        // Nested quantifiers backtrack exponentially on a long name that almost matches.
+        Write("Quarterly financial report for the fiscal year twenty draft-final.txt", "x");
+        Write("normal.txt", "abc");
+
+        var engine = new SearchEngine(new SearchQuery(@"^(\w+\s?)+$", true, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Contains(engine.Results, r => Path.GetFileName(r.Path) == "normal.txt");
+        var skipped = Assert.Single(engine.Skipped);
+        Assert.StartsWith("Quarterly", Path.GetFileName(skipped.Path));
+    }
+
+    [Fact]
     public async Task FilesLargerThanOneChunkAreSearchedCompletelyWithCorrectLineNumbers()
     {
         // Lines of 100 characters; the file spans three reading chunks. Markers sit on lines that straddle
@@ -137,6 +164,7 @@ public sealed class SearchTests : IDisposable
         Fixtures.Xlsx(PathOf("budget.xlsx"), "Receivables", new()
         {
             [1] = ["Customer", "Reference", "Amount"],
+            [2] = ["123 Main St\nSpringfield", "Address on two lines"],
             [18] = ["Riverbend Outfitters", "Invoice #2041", "8215.5"],
         });
         Fixtures.Pptx(PathOf("deck.pptx"), [["Agenda", "Welcome"], ["Cash collection", "Riverbend: Invoice #2041"]], firstSlideNotes: "Mention Invoice #2041 early");
@@ -278,14 +306,13 @@ public sealed class SearchTests : IDisposable
     {
         string file = Path.Combine(_dir, "settings.json");
         var defaults = Settings.Load(file);
-        Assert.True(defaults.ReadImages);
         Assert.Equal(3, defaults.ContextLines);
         Assert.Contains("node_modules", defaults.IgnoredFolders);
 
-        new Settings { IgnoredFolders = ["build"], ContextLines = 5, HistoryLimit = 20, UseRegex = true, MatchCase = true, ReadImages = false }.Save(file);
+        new Settings { IgnoredFolders = ["build"], ContextLines = 5, HistoryLimit = 20 }.Save(file);
         var loaded = Settings.Load(file);
         Assert.Equal(["build"], loaded.IgnoredFolders);
-        Assert.Equal((5, 20, true, true, false), (loaded.ContextLines, loaded.HistoryLimit, loaded.UseRegex, loaded.MatchCase, loaded.ReadImages));
+        Assert.Equal((5, 20), (loaded.ContextLines, loaded.HistoryLimit));
     }
 
     [Fact]

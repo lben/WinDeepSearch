@@ -68,7 +68,9 @@ jobs:
           $p = Start-Process "$env:LOCALAPPDATA\Programs\WinDeepSearch\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Uninstall failed with $($p.ExitCode)" }
           if (Get-AppxPackage -Name WinDeepSearch) { throw 'The menu package is still registered.' }
-          if (Test-Path -LiteralPath 'HKCU:\Software\Classes\Drive\shell\WinDeepSearch') { throw 'The classic menu entry is still there.' }
+          foreach ($type in '*', 'Directory', 'Directory\Background', 'Drive') {
+            if (Test-Path -LiteralPath "HKCU:\Software\Classes\$type\shell\WinDeepSearch") { throw "The classic menu entry for $type is still there." }
+          }
 
       - uses: actions/upload-artifact@v4
         if: always()

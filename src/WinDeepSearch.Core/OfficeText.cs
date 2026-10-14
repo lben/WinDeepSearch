@@ -158,7 +158,8 @@ internal static class OfficeText
             int count = Math.Min(LinesPerSegment, lines.Count - start);
             yield return new TextSegment
             {
-                Text = string.Join('\n', lines.GetRange(start, count)),
+                // A line break inside one line (a spreadsheet cell, say) would shift the numbering of every later line.
+                Text = string.Join('\n', lines.GetRange(start, count).Select(l => l.ReplaceLineEndings(" "))),
                 Locate = locate,
                 FirstLine = start + 1,
                 LineNumbers = numbers?.GetRange(start, count).ToArray(),

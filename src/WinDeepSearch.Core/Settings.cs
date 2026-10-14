@@ -24,11 +24,6 @@ public sealed class Settings
     /// <summary>How many past searches to keep.</summary>
     public int HistoryLimit { get; set; } = 50;
 
-    // The search bar toggles start the way they were last left.
-    public bool UseRegex { get; set; }
-    public bool MatchCase { get; set; }
-    public bool ReadImages { get; set; } = true;
-
     public static Settings Load(string file)
     {
         try

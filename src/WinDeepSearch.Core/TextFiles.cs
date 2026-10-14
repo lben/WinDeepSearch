@@ -24,8 +24,24 @@ internal static class TextFiles
         var (encoding, bom) = Detect(sample.AsSpan(0, sampled));
         if (encoding == null) return;
 
+        int hits = result.Hits.Count, matches = result.MatchCount;
+        try
+        {
+            Scan(stream, encoding, bom, matcher, active, result, ct);
+        }
+        catch (DecoderFallbackException) when (bom == 0 && encoding is UTF8Encoding)
+        {
+            // The start looked like UTF-8 but later bytes aren't, so the file is ANSI after all: read it again.
+            result.Hits.RemoveRange(hits, result.Hits.Count - hits);
+            result.MatchCount = matches;
+            Scan(stream, Encoding.GetEncoding(1252), 0, matcher, active, result, ct);
+        }
+    }
+
+    static void Scan(FileStream stream, Encoding encoding, int bom, Matcher matcher, ActiveFile active, FileResult result, CancellationToken ct)
+    {
         stream.Position = bom;
-        using var reader = new StreamReader(stream, encoding, detectEncodingFromByteOrderMarks: false, bufferSize: 1 << 16);
+        using var reader = new StreamReader(stream, encoding, detectEncodingFromByteOrderMarks: false, bufferSize: 1 << 16, leaveOpen: true);
         var buffer = new char[ChunkChars];
         string carry = "";
         int acceptFrom = 0, firstLine = 1;
@@ -81,9 +97,10 @@ internal static class TextFiles
             if (b < 0x09 || (b > 0x0D && b < 0x20 && b != 0x1B)) control++;
         if (control > sample.Length / 50) return (null, 0);
 
-        // The sample may end part-way through a multi-byte character.
+        // The sample may end part-way through a multi-byte character. Only the sample was checked, so the decoder
+        // throws on an invalid byte later in the file and the caller reads it again as ANSI.
         for (int cut = 0; cut <= 3 && cut <= sample.Length; cut++)
-            if (Utf8.IsValid(sample[..^cut])) return (new UTF8Encoding(false), 0);
+            if (Utf8.IsValid(sample[..^cut])) return (new UTF8Encoding(false, throwOnInvalidBytes: true), 0);
 
         return (Encoding.GetEncoding(1252), 0);
     }

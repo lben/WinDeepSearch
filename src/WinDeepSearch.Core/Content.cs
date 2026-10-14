@@ -8,7 +8,10 @@ public static class Content
 {
     static readonly HashSet<string> OfficeExtensions = [".docx", ".docm", ".dotx", ".dotm", ".xlsx", ".xlsm", ".xltx", ".xltm", ".pptx", ".pptm", ".potx", ".potm", ".ppsx", ".ppsm"];
     static readonly HashSet<string> OpenDocumentExtensions = [".odt", ".ott", ".ods", ".ots", ".odp", ".otp"];
-    static readonly HashSet<string> FilterExtensions = [".doc", ".dot", ".xls", ".xlt", ".ppt", ".pot", ".pps", ".rtf"];
+    // Read through the Windows filters: Windows itself reads the older Office formats; Excel binary workbooks,
+    // Outlook messages, Visio, Publisher and OneNote need the filters that Microsoft Office installs.
+    static readonly HashSet<string> FilterExtensions =
+        [".doc", ".dot", ".xls", ".xlt", ".ppt", ".pot", ".pps", ".rtf", ".xlsb", ".msg", ".vsd", ".vsdx", ".pub", ".one"];
     static readonly HashSet<string> ImageExtensions = [".png", ".jpg", ".jpeg", ".jpe", ".jfif", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".heic", ".heif"];
 
     internal static void Search(string path, Matcher matcher, ImageText? images, ActiveFile active, FileResult result, CancellationToken ct)

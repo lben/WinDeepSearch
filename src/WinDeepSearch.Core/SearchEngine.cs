@@ -169,12 +169,14 @@ public sealed class SearchEngine
 
     void Process(string path, long length, FileAttributes attributes, CancellationToken searchToken)
     {
-        var result = new FileResult { Path = path, NameMatches = _matcher.MatchName(System.IO.Path.GetFileName(path)) };
+        FileResult? result = null;
         using var skip = CancellationTokenSource.CreateLinkedTokenSource(searchToken);
         var active = new ActiveFile(path, length, skip);
         Active[path] = active;
         try
         {
+            // Inside the try: a pattern can time out on a file name too.
+            result = new FileResult { Path = path, NameMatches = _matcher.MatchName(System.IO.Path.GetFileName(path)) };
             // Reading a cloud file that isn't on this PC would download it; report it instead.
             if (Files.IsOnlineOnly(attributes)) Skipped.Enqueue(new SkippedFile(path, 0, "Online-only file, not downloaded"));
             else Content.Search(path, _matcher, _images, active, result, skip.Token);
@@ -202,6 +204,6 @@ public sealed class SearchEngine
             Interlocked.Increment(ref _done);
         }
 
-        if (result.NameMatches.Count > 0 || result.MatchCount > 0) Results.Enqueue(result);
+        if (result != null && (result.NameMatches.Count > 0 || result.MatchCount > 0)) Results.Enqueue(result);
     }
 }

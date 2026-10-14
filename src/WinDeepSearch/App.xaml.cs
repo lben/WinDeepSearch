@@ -31,10 +31,14 @@ public partial class App : Application
     }
 
     /// <summary>
-    /// Explorer passes "C:\" quoted as "C:\", and the trailing backslash escapes the closing quote, so the path
-    /// arrives as C:" — quotes can't be part of a Windows path, so drop them.
+    /// Explorer passes a drive root quoted as "C:\", and the trailing backslash escapes the closing quote, so the
+    /// path arrives as C:" — quotes can't be part of a Windows path, so drop them and put the root back.
     /// </summary>
-    static string CleanPath(string path) => path.TrimEnd('"').Trim();
+    static string CleanPath(string path)
+    {
+        path = path.TrimEnd('"').Trim();
+        return path.Length == 2 && path[1] == ':' ? path + @"\" : path;
+    }
 
     public static void SaveSettings()
     {

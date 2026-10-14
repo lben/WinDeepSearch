@@ -62,9 +62,6 @@ public partial class SearchView : UserControl
         ActiveList.ItemsSource = _active;
         SkippedList.ItemsSource = _skipped;
         PanelThreads.Text = $"{Environment.ProcessorCount} threads";
-        RegexToggle.IsChecked = App.Settings.UseRegex;
-        CaseToggle.IsChecked = App.Settings.MatchCase;
-        ImagesToggle.IsChecked = App.Settings.ReadImages;
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => Pump(), Dispatcher) { IsEnabled = false };
         Unloaded += (_, _) => _cts?.Cancel();
     }
@@ -124,16 +121,13 @@ public partial class SearchView : UserControl
         ErrorText.Visibility = error == null ? Visibility.Collapsed : Visibility.Visible;
         if (error != null) return;
 
-        App.Settings.UseRegex = query.UseRegex;
-        App.Settings.MatchCase = query.MatchCase;
-        App.Settings.ReadImages = query.ReadImages;
-        App.SaveSettings();
-
+        // Read now rather than at startup: the main app may have changed them since this window opened.
+        var settings = Settings.Load(AppPaths.SettingsFile);
         Clear();
         _root = root;
         _single = _target.SelectedFile != null && JustThisFile.IsChecked == true ? _target.SelectedFile : null;
         ListHeading.Text = _single != null ? "Matches in " + Path.GetFileName(_single) : "Results";
-        var engine = _engine = new SearchEngine(query, root, _single, App.Settings, new ImageText(AppPaths.OcrCache));
+        var engine = _engine = new SearchEngine(query, root, _single, settings, new ImageText(AppPaths.OcrCache));
         var cts = _cts = new CancellationTokenSource();
         SetRunning(true);
         var started = DateTimeOffset.Now;
@@ -159,7 +153,7 @@ public partial class SearchView : UserControl
         cts.Dispose();
         SetRunning(false);
         Finish(engine, stopped);
-        SaveHistory(query, started, stopped);
+        SaveHistory(query, started, stopped, settings.HistoryLimit);
 
         if (_restart)
         {
@@ -336,7 +330,7 @@ public partial class SearchView : UserControl
         }
     }
 
-    void SaveHistory(SearchQuery query, DateTimeOffset started, bool stopped)
+    void SaveHistory(SearchQuery query, DateTimeOffset started, bool stopped, int keep)
     {
         // History keeps the best-ranked files and a few lines each, so saved searches stay small.
         var results = _named.Concat(_content).Take(2000)
@@ -344,7 +338,6 @@ public partial class SearchView : UserControl
             .ToList();
         var summary = new HistorySummary(HistoryStore.NewId(), started, _clock.Elapsed.TotalSeconds, query, _root, _single,
             _named.Count, (int)Math.Min(_matches, int.MaxValue), _filesWithMatches, _skipped.Count, stopped);
-        int keep = App.Settings.HistoryLimit;
         _ = Task.Run(() =>
         {
             try
@@ -425,21 +418,8 @@ public partial class SearchView : UserControl
 
     void ResultsList_KeyDown(object sender, KeyEventArgs e)
     {
-        var row = ResultsList.SelectedItem as Row;
-        switch (e.Key)
-        {
-            case Key.Enter:
-                Activate(row);
-                break;
-            case Key.Right when row is FileRow { HasHits: true, IsExpanded: false } file:
-                Expand(file, all: false);
-                break;
-            case Key.Left when row is FileRow { IsExpanded: true } file:
-                Collapse(file);
-                break;
-            default:
-                return;
-        }
+        if (e.Key != Key.Enter) return;
+        Activate(ResultsList.SelectedItem as Row);
         e.Handled = true;
     }
 
