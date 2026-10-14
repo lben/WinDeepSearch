@@ -1,7 +1,8 @@
 ; Per-user installer: no administrator rights needed to install, except one prompt to trust the certificate
 ; that the Windows 11 menu entry is signed with.
+; Builds from a release tag pass /DAppVersion=X.Y.Z.
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "0.1.0"
 #endif
 
 [Setup]
@@ -28,6 +29,8 @@ SolidCompression=yes
 
 [Files]
 Source: "..\artifacts\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"
+Source: "..\THIRD-PARTY-NOTICES.md"; DestDir: "{app}"
 
 [Icons]
 Name: "{userprograms}\WinDeepSearch"; Filename: "{app}\WinDeepSearch.exe"

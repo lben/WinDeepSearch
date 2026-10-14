@@ -32,8 +32,9 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
 
 ## Install
 
-Download `WinDeepSearch-Setup.exe` from the latest successful run of the **build** workflow (Actions tab, artifact
-*WinDeepSearch*) and run it. It installs for your account only, in `%LOCALAPPDATA%\Programs\WinDeepSearch`.
+Download `WinDeepSearch-Setup.exe` from the [latest release](https://github.com/lben/WinDeepSearch/releases/latest)
+and run it. It installs for your account only, in `%LOCALAPPDATA%\Programs\WinDeepSearch`. The installer is not
+code-signed, so Windows SmartScreen may warn about it: choose **More info › Run anyway**.
 
 Windows asks once for administrator approval: the Windows 11 menu only accepts entries from signed packages, so the
 installer adds the package's certificate to the computer's *Trusted People*. If you decline, the entry still appears
@@ -55,7 +56,8 @@ iscc packaging/WinDeepSearch.iss
 The engine and its tests also build and run on macOS (`dotnet test --project tests/WinDeepSearch.Core.Tests`); the
 Windows-only tests are skipped there.
 `.github/workflows/build.yml` builds the installer on Windows, installs it, runs the UI tests against the installed app
-(including the Explorer menus) and keeps screenshots.
+(including the Explorer menus) and keeps screenshots. Pushing a tag such as `v0.2.0` also publishes the installer as
+release 0.2.0 once all of that passes.
 
 ## Layout
 
@@ -64,3 +66,8 @@ Windows-only tests are skipped there.
 - `src/WinDeepSearch.ShellExt` – the Windows 11 menu command (C++ COM DLL).
 - `packaging` – the menu package manifest, signing script and installer script.
 - `tests` – engine tests and UI tests.
+
+## License
+
+MIT, see [LICENSE](LICENSE). The installer also contains third-party components under their own licenses, listed in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

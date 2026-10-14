@@ -16,6 +16,13 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Version
+        run: |
+          # A release tag such as v0.2.0 sets the version; other builds use the one in Directory.Build.props.
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') { $env:GITHUB_REF_NAME.TrimStart('v') } else { ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version }
+          Write-Host "Version $version"
+          Add-Content $env:GITHUB_ENV "WDS_VERSION=$version"
+
       - name: Engine tests
         run: dotnet test --project tests/WinDeepSearch.Core.Tests -c Release
 
@@ -26,7 +33,7 @@ jobs:
 
       - name: Publish the app
         run: |
-          dotnet publish src/WinDeepSearch -c Release -o artifacts/app
+          dotnet publish src/WinDeepSearch -c Release -o artifacts/app "-p:Version=$env:WDS_VERSION"
           Copy-Item build/shellext/Release/WinDeepSearch.ShellExt.dll artifacts/app/
           Get-ChildItem -Recurse artifacts/app | Select-Object FullName, Length | Format-Table -AutoSize
 
@@ -38,7 +45,7 @@ jobs:
           if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress }
           $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
           if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
-          & $iscc packaging/WinDeepSearch.iss
+          & $iscc "/DAppVersion=$env:WDS_VERSION" packaging/WinDeepSearch.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
 
       - name: Install
@@ -47,6 +54,10 @@ jobs:
           $p = Start-Process artifacts/WinDeepSearch-Setup.exe -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Setup failed with $($p.ExitCode)" }
           Get-Content "$env:LOCALAPPDATA\WinDeepSearch\registration.log"
+          $installed = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{ECF0B5BB-81DD-438B-94DD-2A0DDF6E92F8}_is1').DisplayVersion
+          Write-Host "Installed $installed, app $((Get-Item "$env:LOCALAPPDATA\Programs\WinDeepSearch\WinDeepSearch.exe").VersionInfo.ProductVersion)"
+          if ($installed -ne $env:WDS_VERSION) { throw "Installed version $installed, expected $env:WDS_VERSION." }
+          if (-not (Test-Path "$env:LOCALAPPDATA\Programs\WinDeepSearch\LICENSE.txt")) { throw 'LICENSE.txt is not installed.' }
           $package = Get-AppxPackage -Name WinDeepSearch
           if (-not $package) { throw 'The Windows 11 menu package is not registered.' }
           $package | Format-List Name, Version, InstallLocation, Status
@@ -79,3 +90,20 @@ jobs:
           path: |
             artifacts/WinDeepSearch-Setup.exe
             artifacts/screenshots
+
+  # Runs only for a tag such as v0.2.0, and only after the installer passed every check above.
+  release:
+    needs: windows
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: WinDeepSearch
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" WinDeepSearch-Setup.exe --repo "$GITHUB_REPOSITORY" --title "WinDeepSearch ${GITHUB_REF_NAME#v}" --generate-notes
