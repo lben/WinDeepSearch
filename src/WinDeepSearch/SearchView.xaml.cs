@@ -152,7 +152,9 @@ public partial class SearchView : UserControl
 
         _timer.Stop();
         _clock.Stop();
-        while (!engine.Results.IsEmpty) Pump();
+        // Pick up whatever arrived after the last tick, including a file skipped right at the end.
+        do Pump();
+        while (!engine.Results.IsEmpty);
         _cts = null;
         cts.Dispose();
         SetRunning(false);

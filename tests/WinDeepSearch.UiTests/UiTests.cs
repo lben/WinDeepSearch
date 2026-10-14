@@ -200,8 +200,11 @@ public sealed class UiTests : IDisposable
         var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
         try
         {
-            var file = Retry.WhileNull(() => explorer.FindFirstDescendant(cf => cf.ByControlType(ControlType.ListItem).And(cf.ByName("billing.log"))),
-                TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+            // Explorer hides known extensions by default, so the item may be called "billing".
+            var file = Retry.WhileNull(() => explorer.FindFirstDescendant(cf => cf.ByControlType(ControlType.ListItem).And(cf.ByName("billing.log").Or(cf.ByName("billing")))),
+                TimeSpan.FromSeconds(20)).Result;
+            if (file == null) ShotScreen("explorer-item-missing");
+            Assert.NotNull(file);
 
             // Windows 11 menu.
             file.RightClick();
@@ -289,8 +292,14 @@ public sealed class UiTests : IDisposable
         Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.FirstOrDefault(i => i.Name.StartsWith(prefix)),
             TimeSpan.FromSeconds(10), throwOnTimeout: true).Result!;
 
-    AutomationElement WaitForToolTip() =>
-        Retry.WhileNull(() => _automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
+    AutomationElement WaitForToolTip()
+    {
+        // WPF shows a tooltip in its own popup window, so it sits a level below the desktop.
+        var tip = Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10)).Result;
+        if (tip == null) ShotScreen("tooltip-missing");
+        Assert.NotNull(tip);
+        return tip;
+    }
 
     AutomationElement WaitForMenuItem() =>
         Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("WinDeepSearch"))),

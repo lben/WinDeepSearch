@@ -51,7 +51,7 @@ jobs:
           if (-not $package) { throw 'The Windows 11 menu package is not registered.' }
           $package | Format-List Name, Version, InstallLocation, Status
           foreach ($type in '*', 'Directory', 'Directory\Background', 'Drive') {
-            $command = (Get-ItemProperty "HKCU:\Software\Classes\$type\shell\WinDeepSearch\command").'(default)'
+            $command = (Get-ItemProperty -LiteralPath "HKCU:\Software\Classes\$type\shell\WinDeepSearch\command").'(default)'
             if (-not $command) { throw "The classic menu entry for $type is missing." }
             Write-Host "$type -> $command"
           }
