@@ -189,13 +189,7 @@ public static class Fixtures
         if (picturePng != null)
         {
             using var bitmap = SKBitmap.Decode(picturePng);
-            var rgb = new byte[bitmap.Width * bitmap.Height * 3];
-            for (int y = 0, i = 0; y < bitmap.Height; y++)
-                for (int x = 0; x < bitmap.Width; x++)
-                {
-                    var c = bitmap.GetPixel(x, y);
-                    rgb[i++] = c.Red; rgb[i++] = c.Green; rgb[i++] = c.Blue;
-                }
+            var rgb = Rgb(bitmap);
             int image = AddStream($"/Type /XObject /Subtype /Image /Width {bitmap.Width} /Height {bitmap.Height} /ColorSpace /DeviceRGB /BitsPerComponent 8", rgb);
             int width = 450, height = 450 * bitmap.Height / bitmap.Width;
             int draw = AddStream("", Encoding.Latin1.GetBytes($"q {width} 0 0 {height} 72 400 cm /Im1 Do Q"));
@@ -218,6 +212,74 @@ public static class Fixtures
         Write($"xref\n0 {objects.Count + 1}\n0000000000 65535 f \n");
         foreach (var offset in offsets) Write($"{offset:D10} 00000 n \n");
         Write($"trailer\n<< /Size {objects.Count + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+    }
+
+    /// <summary>An uncompressed multi-page TIFF, the format scanners usually produce, one page per PNG.</summary>
+    public static byte[] Tiff(params byte[][] pagesPng)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write("II"u8);
+        writer.Write((ushort)42);
+        long nextPointer = stream.Position;
+        writer.Write(0u);
+        foreach (var png in pagesPng)
+        {
+            using var bitmap = SKBitmap.Decode(png);
+            var rgb = Rgb(bitmap);
+            uint data = (uint)stream.Position;
+            writer.Write(rgb);
+            if (stream.Position % 2 == 1) writer.Write((byte)0);
+            uint bits = (uint)stream.Position;
+            for (int i = 0; i < 3; i++) writer.Write((ushort)8);
+            uint resolution = (uint)stream.Position;
+            writer.Write(72u);
+            writer.Write(1u);
+
+            uint ifd = (uint)stream.Position;
+            stream.Position = nextPointer;
+            writer.Write(ifd);
+            stream.Position = ifd;
+            (ushort Tag, ushort Type, uint Count, uint Value)[] entries =
+            [
+                (256, 4, 1, (uint)bitmap.Width), (257, 4, 1, (uint)bitmap.Height), (258, 3, 3, bits), (259, 3, 1, 1),
+                (262, 3, 1, 2), (273, 4, 1, data), (277, 3, 1, 3), (278, 4, 1, (uint)bitmap.Height),
+                (279, 4, 1, (uint)rgb.Length), (282, 5, 1, resolution), (283, 5, 1, resolution), (284, 3, 1, 1), (296, 3, 1, 2),
+            ];
+            writer.Write((ushort)entries.Length);
+            foreach (var e in entries)
+            {
+                writer.Write(e.Tag);
+                writer.Write(e.Type);
+                writer.Write(e.Count);
+                if (e.Type == 3 && e.Count == 1)
+                {
+                    writer.Write((ushort)e.Value);
+                    writer.Write((ushort)0);
+                }
+                else
+                {
+                    writer.Write(e.Value);
+                }
+            }
+            nextPointer = stream.Position;
+            writer.Write(0u);
+        }
+        return stream.ToArray();
+    }
+
+    static byte[] Rgb(SKBitmap bitmap)
+    {
+        var rgb = new byte[bitmap.Width * bitmap.Height * 3];
+        for (int y = 0, i = 0; y < bitmap.Height; y++)
+            for (int x = 0; x < bitmap.Width; x++)
+            {
+                var c = bitmap.GetPixel(x, y);
+                rgb[i++] = c.Red;
+                rgb[i++] = c.Green;
+                rgb[i++] = c.Blue;
+            }
+        return rgb;
     }
 
     static string ContentTypes(string mainPart, string mainType) =>

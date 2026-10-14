@@ -149,6 +149,19 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task ReadsOlderFormatsThroughTheWindowsFilters()
+    {
+        Assert.SkipUnless(OperatingSystem.IsWindows(), "Windows search filters (IFilter) only exist on Windows.");
+        Write("old.rtf", @"{\rtf1\ansi{\fonttbl\f0\fswiss Helvetica;}\f0\pard First paragraph\par Second has Invoice #2041 in it\par}");
+
+        // Read as plain text the RTF markup would match too, labelled "Line 1"; the filter yields paragraphs.
+        var hit = Single(await Search("Invoice #2041"), "old.rtf").Hits.Single();
+        Assert.StartsWith("Paragraph ", hit.Location);
+        Assert.Contains("Second has Invoice #2041 in it", HitText(hit));
+        Assert.DoesNotContain(@"\par", HitText(hit));
+    }
+
+    [Fact]
     public async Task ReadsPdfText()
     {
         Fixtures.Pdf(PathOf("contract.pdf"), ["7. Billing", "7.3 The first invoice is Invoice #1001.", "8. Term"]);

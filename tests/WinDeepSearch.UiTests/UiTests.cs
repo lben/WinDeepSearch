@@ -40,6 +40,8 @@ public sealed class UiTests : IDisposable
         Fixtures.Docx(Path.Combine(_dir, "letter.docx"), ["Dear customer,", "Please pay Invoice #2041 by Friday.", "Thanks"]);
         Fixtures.Pdf(Path.Combine(_dir, "contract.pdf"), ["7. Billing", "The first invoice is Invoice #1001.", "8. Term"]);
         File.WriteAllBytes(Path.Combine(_dir, "scan.png"), Fixtures.TextPicture("Quarterly report", "Invoice 2041 overdue"));
+        // A two-page TIFF goes through the Windows imaging decoder, which the engine can't do on its own.
+        File.WriteAllBytes(Path.Combine(_dir, "pages.tif"), Fixtures.Tiff(Fixtures.TextPicture("Cover page"), Fixtures.TextPicture("Remit Invoice 3310 now")));
     }
 
     public void Dispose()
@@ -61,6 +63,7 @@ public sealed class UiTests : IDisposable
         Assert.Contains("letter.docx · 1 match", names);
         Assert.Contains("contract.pdf · 1 match", names);
         Assert.Contains("scan.png · 1 match", names);
+        Assert.Contains("pages.tif · 1 match", names);
         Assert.True(names.IndexOf("billing.log · 7 matches") < names.IndexOf("letter.docx · 1 match"), "Files with more matches come first.");
         Shot(window, "01-results");
 
@@ -77,6 +80,11 @@ public sealed class UiTests : IDisposable
         Retry.WhileNull(() => tip.FindFirstDescendant(cf => cf.ByControlType(ControlType.Image)), TimeSpan.FromSeconds(10), throwOnTimeout: true);
         Thread.Sleep(500);
         ShotScreen("03-hover-picture");
+
+        // The match on the TIFF's second page is labelled with its page.
+        Item(window, "pages.tif").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
+        Assert.Contains(ResultNames(window), n => n.StartsWith("Page 2 · text in image"));
+        Item(window, "pages.tif").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
 
         // The arrow lists four matching lines, and "Show 3 more" the rest.
         Item(window, "billing.log").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
@@ -142,8 +150,13 @@ public sealed class UiTests : IDisposable
         Shot(window, "08-main-app");
 
         scope.Text = _dir;
+        string historyDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinDeepSearch", "history");
+        int saved = Directory.Exists(historyDir) ? Directory.GetFiles(historyDir, "*.summary.json").Length : 0;
         Search(window, "Invoice #2041", regex: false);
         Assert.Contains("letter.docx · 1 match", ResultNames(window));
+        // The search is written to history in the background once it finishes.
+        Retry.WhileFalse(() => Directory.Exists(historyDir) && Directory.GetFiles(historyDir, "*.summary.json").Length > saved,
+            TimeSpan.FromSeconds(30), throwOnTimeout: true);
 
         window.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")).Click();
         var history = Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("HistoryList"))?.AsListBox(), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
