@@ -33,7 +33,7 @@ public sealed class SearchTests : IDisposable
     async Task<List<FileResult>> Search(string text, bool regex = false, bool matchCase = false, bool images = true,
         Settings? settings = null, string? singleFile = null)
     {
-        var engine = new SearchEngine(new SearchQuery(text, regex, matchCase, images), _dir, singleFile, settings ?? new Settings(), new ImageText(_cache));
+        var engine = new SearchEngine(new SearchQuery(text, regex, matchCase, images), _dir, singleFile, settings ?? new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
         return [.. engine.Results];
     }
@@ -131,7 +131,7 @@ public sealed class SearchTests : IDisposable
         Write("Quarterly financial report for the fiscal year twenty draft-final.txt", "x");
         Write("normal.txt", "abc");
 
-        var engine = new SearchEngine(new SearchQuery(@"^(\w+\s?)+$", true, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        var engine = new SearchEngine(new SearchQuery(@"^(\w+\s?)+$", true, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Contains(engine.Results, r => Path.GetFileName(r.Path) == "normal.txt");
@@ -316,7 +316,7 @@ public sealed class SearchTests : IDisposable
         // OneNote's filter comes with Microsoft Office; without it (or for a damaged file) nothing can read this.
         File.WriteAllBytes(PathOf("notebook.one"), [0xE4, 0x52, 0x5C, 0x7B, 0x8C, 0xD8, 0xA7, 0x4D, 1, 2, 3, 4, 5, 6, 7, 8]);
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, engine.Unreadable);
@@ -329,7 +329,7 @@ public sealed class SearchTests : IDisposable
         string cloud = Write("cloud.txt", "needle");
         File.SetAttributes(cloud, FileAttributes.Offline);
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(engine.Results);
@@ -350,6 +350,34 @@ public sealed class SearchTests : IDisposable
         var loaded = Settings.Load(file);
         Assert.Equal(["build"], loaded.IgnoredFolders);
         Assert.Equal((5, 20), (loaded.ContextLines, loaded.HistoryLimit));
+    }
+
+    [Fact]
+    public async Task TheAppsOwnHistoryAndPictureTextAreNeverSearched()
+    {
+        // Searching a folder that contains the app's data (C:\ or the user profile) must not list its own files.
+        string data = Path.Combine(_dir, "AppData", "WinDeepSearch");
+        var earlier = new FileResult { Path = Path.Combine(_dir, "notes.txt"), MatchCount = 1, Hits = [new Hit("Line 1", [new ContextLine(1, "needle here", [new TextRange(0, 6)])], 0)] };
+        new HistoryStore(Path.Combine(data, "history")).Save(
+            new HistorySummary("earlier", DateTimeOffset.Now, 1, new SearchQuery("needle", false, false, true), _dir, null, 0, 1, 1, 0, false), [earlier], 50);
+        Write(Path.Combine("AppData", "WinDeepSearch", "ocr-cache", "ab", "ab12.json"), "[{\"Text\":\"needle in a picture\"}]");
+        Write("notes.txt", "needle here");
+
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), data);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(["notes.txt"], engine.Results.Select(r => Path.GetFileName(r.Path)));
+    }
+
+    [Fact]
+    public async Task KeepingOnlyTheFirstMatchingLinesIsFlagged()
+    {
+        Write("many.log", string.Join("\n", Enumerable.Range(1, Matcher.MaxHitsPerFile + 5).Select(i => $"hit {i}")));
+
+        var result = Single(await Search("hit"), "many.log");
+        Assert.Equal(Matcher.MaxHitsPerFile + 5, result.MatchCount);
+        Assert.Equal(Matcher.MaxHitsPerFile, result.Hits.Count);
+        Assert.True(result.HitsTruncated);
     }
 
     [Fact]
@@ -375,7 +403,7 @@ public sealed class SearchTests : IDisposable
             huge.Write("\nneedle\n"u8);
         }
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache));
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
         var run = engine.RunAsync(TestContext.Current.CancellationToken);
         while (!run.IsCompleted)
         {

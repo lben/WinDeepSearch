@@ -51,19 +51,25 @@ public sealed class SearchEngine
     readonly string? _singleFile;
     readonly IReadOnlyList<string> _ignored;
     readonly ImageText? _images;
+    readonly string _dataFolder;
     readonly Channel<(string Path, long Length, FileAttributes Attributes)> _files =
         Channel.CreateBounded<(string, long, FileAttributes)>(10_000);
 
     long _found, _done, _unreadable;
     volatile bool _enumerating = true;
 
-    public SearchEngine(SearchQuery query, string root, string? singleFile, Settings settings, ImageText images)
+    /// <param name="dataFolder">
+    /// The app's own data (history, remembered picture text), never searched: it holds earlier queries and
+    /// results, which would otherwise top the results of every later search of a parent folder.
+    /// </param>
+    public SearchEngine(SearchQuery query, string root, string? singleFile, Settings settings, ImageText images, string dataFolder)
     {
         _matcher = new Matcher(query, settings.ContextLines);
         _root = root;
         _singleFile = singleFile;
         _ignored = settings.IgnoredFolders;
         _images = query.ReadImages ? images : null;
+        _dataFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataFolder));
     }
 
     public ConcurrentQueue<FileResult> Results { get; } = new();
@@ -123,7 +129,8 @@ public sealed class SearchEngine
                 {
                     ct.ThrowIfCancellationRequested();
                     if (entry is FileInfo file) await Add(file, ct);
-                    else if (entry is DirectoryInfo sub && !IsIgnored(sub) && !IsLink(sub)) pending.Push(sub);
+                    else if (entry is DirectoryInfo sub && !IsIgnored(sub) && !IsLink(sub)
+                             && !sub.FullName.Equals(_dataFolder, StringComparison.OrdinalIgnoreCase)) pending.Push(sub);
                 }
             }
         }

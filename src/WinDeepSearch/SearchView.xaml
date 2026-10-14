@@ -87,6 +87,10 @@
         <DataTemplate DataType="{x:Type local:MoreRow}">
             <TextBlock Text="{Binding Label}" Margin="82,0,0,4" Cursor="Hand" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
         </DataTemplate>
+
+        <DataTemplate DataType="{x:Type local:NoteRow}">
+            <TextBlock Text="{Binding Label}" Margin="82,0,0,4" TextWrapping="Wrap" Style="{StaticResource Caption}" />
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Margin="20,4,20,0">

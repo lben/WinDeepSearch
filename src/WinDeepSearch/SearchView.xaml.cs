@@ -128,7 +128,7 @@ public partial class SearchView : UserControl
         _root = root;
         _single = _target.SelectedFile != null && JustThisFile.IsChecked == true ? _target.SelectedFile : null;
         ListHeading.Text = _single != null ? "Matches in " + Path.GetFileName(_single) : "Results";
-        var engine = _engine = new SearchEngine(query, root, _single, settings, new ImageText(AppPaths.OcrCache));
+        var engine = _engine = new SearchEngine(query, root, _single, settings, new ImageText(AppPaths.OcrCache), AppPaths.Root);
         var cts = _cts = new CancellationTokenSource();
         SetRunning(true);
         var started = DateTimeOffset.Now;
@@ -258,7 +258,11 @@ public partial class SearchView : UserControl
 
     void Add(FileResult result)
     {
-        if (_storedHits >= MaxStoredHits && result.Hits.Count > 1) result.Hits.RemoveRange(1, result.Hits.Count - 1);
+        if (_storedHits >= MaxStoredHits && result.Hits.Count > 1)
+        {
+            result.Hits.RemoveRange(1, result.Hits.Count - 1);
+            result.HitsTruncated = true;
+        }
         _storedHits += result.Hits.Count;
         _matches += result.MatchCount;
         if (result.MatchCount > 0) _filesWithMatches++;
@@ -295,9 +299,11 @@ public partial class SearchView : UserControl
         var hits = file.Result.Hits;
         int shown = all ? hits.Count : Math.Min(LinesShownWhenExpanded, hits.Count);
         int at = _rows.IndexOf(file) + 1;
-        for (int i = 0; i < shown; i++) _rows.Insert(at + i, new HitRow(file, hits[i]));
-        if (shown < hits.Count) _rows.Insert(at + shown, new MoreRow(file, hits.Count - shown));
-        file.ChildRows = shown + (shown < hits.Count ? 1 : 0);
+        var children = new List<Row>(hits.Take(shown).Select(h => new HitRow(file, h)));
+        if (shown < hits.Count) children.Add(new MoreRow(file, hits.Count - shown));
+        if (file.Result.HitsTruncated) children.Add(new NoteRow(file));
+        for (int i = 0; i < children.Count; i++) _rows.Insert(at + i, children[i]);
+        file.ChildRows = children.Count;
         file.IsExpanded = true;
         _expanded.Add(file);
     }
@@ -317,8 +323,9 @@ public partial class SearchView : UserControl
         int at = _rows.IndexOf(more);
         _rows.RemoveAt(at);
         var hits = file.Result.Hits;
-        for (int i = file.ChildRows - 1; i < hits.Count; i++) _rows.Insert(at++, new HitRow(file, hits[i]));
-        file.ChildRows = hits.Count;
+        int note = file.Result.HitsTruncated ? 1 : 0;
+        for (int i = file.ChildRows - 1 - note; i < hits.Count; i++) _rows.Insert(at++, new HitRow(file, hits[i]));
+        file.ChildRows = hits.Count + note;
     }
 
     void Activate(Row? row)
@@ -335,7 +342,14 @@ public partial class SearchView : UserControl
     {
         // History keeps the best-ranked files and a few lines each, so saved searches stay small.
         var results = _named.Concat(_content).Take(2000)
-            .Select(f => new FileResult { Path = f.Result.Path, NameMatches = f.Result.NameMatches, MatchCount = f.Result.MatchCount, Hits = f.Result.Hits.Take(50).ToList() })
+            .Select(f => new FileResult
+            {
+                Path = f.Result.Path,
+                NameMatches = f.Result.NameMatches,
+                MatchCount = f.Result.MatchCount,
+                Hits = f.Result.Hits.Take(50).ToList(),
+                HitsTruncated = f.Result.HitsTruncated || f.Result.Hits.Count > 50,
+            })
             .ToList();
         var summary = new HistorySummary(HistoryStore.NewId(), started, _clock.Elapsed.TotalSeconds, query, _root, _single,
             _named.Count, (int)Math.Min(_matches, int.MaxValue), _filesWithMatches, _skipped.Count, stopped);

@@ -137,6 +137,18 @@ public sealed class MoreRow(FileRow file, int count) : Row
     public override string ToString() => Label;
 }
 
+/// <summary>Says that only some of a file's matching lines were kept (the match count still covers them all).</summary>
+public sealed class NoteRow(FileRow file) : Row
+{
+    public FileRow File { get; } = file;
+
+    public string Label { get; } = file.Result.Hits.Count == 1
+        ? $"Only the first matching line was kept; the file has {file.Result.MatchCount.ToString("N0", CultureInfo.InvariantCulture)} matches"
+        : $"Only the first {file.Result.Hits.Count.ToString("N0", CultureInfo.InvariantCulture)} matching lines were kept; the file has {file.Result.MatchCount.ToString("N0", CultureInfo.InvariantCulture)} matches";
+
+    public override string ToString() => Label;
+}
+
 /// <summary>A file in the "being searched" panel.</summary>
 public sealed class ActiveRow(ActiveFile file, string root) : Row
 {

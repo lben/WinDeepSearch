@@ -17,6 +17,17 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
 - Open **WinDeepSearch** from the Start menu to search any folder (C:\ by default), go back to past searches and their
   results in **History**, and change ignored folders, preview lines and history size in **Settings**.
 
+## Limits
+
+- Up to 5,000 matching lines are kept per file, and 200,000 per search; past that the count is still exact and the
+  list says that later lines were not kept.
+- Excel binary workbooks (.xlsb), Outlook messages, Visio, Publisher and OneNote files are read with the filters that
+  Microsoft Office installs; without them they are counted as "couldn't be read".
+- OneDrive files that are only online are not downloaded; they are listed as skipped.
+- Archives (.zip and similar) are not opened. WinDeepSearch never searches its own data folder.
+- If File Explorer already shows the folder of a clicked result, Windows selects the file in that window instead of
+  opening a new one.
+
 ## Install
 
 Download `WinDeepSearch-Setup.exe` from the latest successful run of the **build** workflow (Actions tab, artifact

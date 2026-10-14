@@ -86,7 +86,11 @@ public sealed class Matcher
 
     void AddHit(string text, int lineStart, int lineEnd, int lineIndex, List<TextRange> ranges, TextSegment segment, FileResult result)
     {
-        if (result.Hits.Count >= MaxHitsPerFile) return;
+        if (result.Hits.Count >= MaxHitsPerFile)
+        {
+            result.HitsTruncated = true;
+            return;
+        }
 
         var before = new List<(int Start, int End)>();
         for (int start = lineStart; before.Count < _contextLines && start > 0;)

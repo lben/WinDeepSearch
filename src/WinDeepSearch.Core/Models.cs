@@ -26,6 +26,9 @@ public sealed class FileResult
     public IReadOnlyList<TextRange> NameMatches { get; init; } = [];
     public List<Hit> Hits { get; init; } = [];
     public int MatchCount { get; set; }
+
+    /// <summary>True when more lines matched than were kept (see <see cref="Matcher.MaxHitsPerFile"/>).</summary>
+    public bool HitsTruncated { get; set; }
 }
 
 /// <summary>A run of text from one place in a file, searched as a unit.</summary>

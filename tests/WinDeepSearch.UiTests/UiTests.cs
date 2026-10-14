@@ -123,6 +123,24 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void ListingEveryMatchSaysWhenLinesWereNotKept()
+    {
+        string dir = Directory.CreateTempSubdirectory("wds-many-").FullName;
+        string file = Path.Combine(dir, "many.log");
+        File.WriteAllLines(file, Enumerable.Range(1, 5005).Select(i => $"hit {i}"));
+
+        var window = Launch("--path", file);
+        window.FindFirstDescendant(cf => cf.ByAutomationId("JustThisFile")).AsCheckBox().IsChecked = true;
+        Search(window, "hit", regex: false);
+
+        var list = window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList"));
+        list.Patterns.Scroll.Pattern.SetScrollPercent(-1, 100);
+        const string note = "Only the first 5,000 matching lines were kept; the file has 5,005 matches";
+        Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByName(note)), TimeSpan.FromSeconds(20), throwOnTimeout: true, ignoreException: true);
+        Shot(window, "17-lines-not-kept");
+    }
+
+    [Fact]
     public void ASlowFileShowsProgressAndCanBeSkipped()
     {
         string dir = Directory.CreateTempSubdirectory("wds-skip-").FullName;
