@@ -99,9 +99,8 @@ public sealed class UiTests : IDisposable
         // Clicking a match opens File Explorer on the file's folder, with the file selected.
         Item(window, "Line 2 ·").Click();
         var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
-        var selected = Retry.WhileNull(() => explorer.FindAllDescendants(cf => cf.ByControlType(ControlType.ListItem)).FirstOrDefault(i => i.AsListBoxItem().IsSelected),
-            TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true).Result;
-        Assert.StartsWith("billing", selected.Name);
+        var selected = Retry.WhileNull(() => ExplorerSelection(_dir), TimeSpan.FromSeconds(20)).Result;
+        Assert.Equal(Path.Combine(_dir, "billing.log"), selected);
         explorer.Close();
     }
 
@@ -199,17 +198,20 @@ public sealed class UiTests : IDisposable
         Assert.Contains("letter.docx · 1 match", ResultNames(savedWindow));
         savedWindow.Close();
 
-        // Search again runs it anew.
+        // Search again runs it anew, and it is saved as a new entry.
+        int beforeAgain = SavedSearches(historyDir);
         window.FindFirstDescendant(cf => cf.ByAutomationId("SearchAgain")).AsButton().Invoke();
         var again = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
         WaitForFinish(again);
         Assert.Contains("letter.docx · 1 match", ResultNames(again));
+        Retry.WhileFalse(() => SavedSearches(historyDir) == beforeAgain + 1, TimeSpan.FromSeconds(30), throwOnTimeout: true);
         again.Close();
 
-        // Remove takes it out of the list.
-        int before = history.Items.Length;
+        // Remove deletes the selected entry, and the list shows what is left.
+        int beforeRemove = SavedSearches(historyDir);
         window.FindFirstDescendant(cf => cf.ByAutomationId("RemoveHistory")).AsButton().Invoke();
-        Retry.WhileFalse(() => history.Items.Length == before - 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Retry.WhileFalse(() => SavedSearches(historyDir) == beforeRemove - 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Retry.WhileFalse(() => history.Items.Length == beforeRemove - 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
 
         // Settings changes are saved and still there after the app restarts.
         window.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).Click();
@@ -419,6 +421,29 @@ public sealed class UiTests : IDisposable
 
     Window? SearchWindowTitled(string title) =>
         _automation.GetDesktop().FindFirstChild(cf => cf.ByControlType(ControlType.Window).And(cf.ByName(title)))?.AsWindow();
+
+    static int SavedSearches(string historyDir) =>
+        Directory.Exists(historyDir) ? Directory.GetFiles(historyDir, "*.summary.json").Length : 0;
+
+    /// <summary>The file selected in the Explorer window showing <paramref name="folder"/>, asked through the Shell.</summary>
+    static string ExplorerSelection(string folder)
+    {
+        dynamic shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!)!;
+        foreach (dynamic window in shell.Windows())
+        {
+            try
+            {
+                if (!string.Equals((string)window.Document.Folder.Self.Path, folder, StringComparison.OrdinalIgnoreCase)) continue;
+                dynamic items = window.Document.SelectedItems();
+                if (items.Count > 0) return (string)items.Item(0).Path;
+            }
+            catch (Exception)
+            {
+                // Not a folder window, or still loading.
+            }
+        }
+        return null;
+    }
 
     static List<string> Texts(AutomationElement element) =>
         element.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.Name).Where(n => !string.IsNullOrEmpty(n)).ToList();
