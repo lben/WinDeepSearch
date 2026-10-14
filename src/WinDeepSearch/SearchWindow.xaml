@@ -1,0 +1,8 @@
+<Window x:Class="WinDeepSearch.SearchWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:WinDeepSearch"
+        Title="WinDeepSearch" Width="1280" Height="820" MinWidth="760" MinHeight="480"
+        WindowStartupLocation="CenterScreen" Icon="Assets/WinDeepSearch.ico">
+    <local:SearchView x:Name="View" />
+</Window>

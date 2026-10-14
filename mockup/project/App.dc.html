@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WinDeepSearch main app</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700&amp;family=JetBrains+Mono:wght@400;600&amp;display=swap">
+<style>
+body{margin:0}
+</style>
+</helmet>
+<div style="position: relative; box-sizing: border-box; min-height: 100vh; display: flex; flex-direction: column; background: #F3F3F3; color: #1B1B1B; font-family: 'Segoe UI Variable Text', 'Segoe UI', 'Open Sans', sans-serif; font-size: 14px; line-height: 20px">
+
+<div style="display: flex; align-items: center; gap: 10px; height: 40px; padding-left: 14px; font-size: 12px">
+<span aria-hidden="true" style="flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border-radius: 4px; background: #005FB8"><svg viewBox="0 0 16 16" width="12" height="12" style="display: block; fill: none; stroke: #FFFFFF; stroke-width: 2; stroke-linecap: round"><circle cx="7" cy="7" r="4.25"></circle><path d="M10.25 10.25 13.5 13.5"></path></svg></span>
+<span style="flex: 1; min-width: 0">WinDeepSearch</span>
+<span style="display: flex">
+<button type="button" aria-label="Minimize" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><path d="M0 5h10"></path></svg></button>
+<button type="button" aria-label="Maximize" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><rect x="0.5" y="0.5" width="9" height="9" rx="1.5"></rect></svg></button>
+<button type="button" aria-label="Close" style="width: 46px; height: 40px; display: inline-flex; align-items: center; justify-content: center; border: 0; background: transparent; color: #1B1B1B"><svg viewBox="0 0 10 10" width="10" height="10" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1"><path d="M0.5 0.5l9 9M9.5 0.5l-9 9"></path></svg></button>
+</span>
+</div>
+
+<div style="flex: 1; display: flex; flex-wrap: wrap; align-items: flex-start">
+
+<nav aria-label="Sections" style="flex: 1 1 180px; max-width: 220px; box-sizing: border-box; padding: 4px 8px; display: flex; flex-direction: column; gap: 2px">
+<button type="button" onClick="{{ goSearch }}" aria-current="{{ nav.searchCur }}" style="{{ nav.search }}"><span aria-hidden="true" style="{{ nav.searchPill }}"></span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round"><circle cx="7" cy="7" r="4.5"></circle><path d="M10.5 10.5 14 14"></path></svg><span>Search</span></button>
+<button type="button" onClick="{{ goHistory }}" aria-current="{{ nav.historyCur }}" style="{{ nav.history }}"><span aria-hidden="true" style="{{ nav.historyPill }}"></span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.5V8l2.5 1.5"></path></svg><span>History</span></button>
+<button type="button" onClick="{{ goSettings }}" aria-current="{{ nav.settingsCur }}" style="{{ nav.settings }}"><span aria-hidden="true" style="{{ nav.settingsPill }}"></span><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round"><circle cx="8" cy="8" r="2.2"></circle><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2M3.4 3.4l1.4 1.4M11.2 11.2l1.4 1.4M3.4 12.6l1.4-1.4M11.2 4.8l1.4-1.4"></path></svg><span>Settings</span></button>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0">
+
+<sc-if value="{{ isSearch }}" hint-placeholder-val="{{ true }}">
+<dc-import name="Main" origin="app" embedded="{{ true }}" hint-size="100%,744px"></dc-import>
+</sc-if>
+
+<sc-if value="{{ isHistory }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 4px 20px 16px 8px">
+
+<section aria-label="Saved searches" style="flex: 1 1 320px; min-width: 0; box-sizing: border-box; height: 732px; display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<div style="padding: 14px 12px 8px">
+<div style="display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px">
+<h1 style="margin: 0; font-size: 16px; line-height: 22px; font-weight: 600">History</h1>
+<span style="font-size: 12px; color: #5C5C5C">{{ histCountText }}</span>
+</div>
+<input type="text" aria-label="Filter history" placeholder="Filter by search text or folder" value="{{ filter }}" onChange="{{ onFilter }}" style="box-sizing: border-box; width: 100%; height: 32px; padding: 0 10px; border: 1px solid #D1D1D1; border-bottom: 2px solid #8A8A8A; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font: inherit; font-size: 13px">
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 6px 6px">
+<sc-for list="{{ hist }}" as="h" hint-placeholder-count="5">
+<button type="button" onClick="{{ h.pick }}" aria-current="{{ h.current }}" style="{{ h.style }}">
+<span style="display: flex; align-items: center; gap: 6px; min-width: 0">
+<span style="flex: 0 1 auto; min-width: 0; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ h.q }}</span>
+<sc-for list="{{ h.flags }}" as="fl" hint-placeholder-count="1"><span title="{{ fl.title }}" style="flex: 0 0 auto; padding: 0 5px; border: 1px solid #B9CFEA; border-radius: 3px; background: #EEF4FB; color: #004C93; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 11px; line-height: 16px">{{ fl.label }}</span></sc-for>
+</span>
+<span style="font-size: 12px; color: #5C5C5C; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ h.scope }}</span>
+<span style="font-size: 12px; color: #6E6E6E">{{ h.meta }}</span>
+</button>
+</sc-for>
+<sc-if value="{{ histEmpty }}" hint-placeholder-val="{{ false }}">
+<p style="margin: 24px 12px; font-size: 13px; color: #5C5C5C; text-align: center">{{ histEmptyText }}</p>
+</sc-if>
+</div>
+</section>
+
+<section aria-label="Saved results" style="flex: 999 1 460px; min-width: 0; box-sizing: border-box; height: 732px; display: flex; flex-direction: column; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<sc-if value="{{ hasDetail }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 16px 20px 14px; border-bottom: 1px solid #EDEDED">
+<div style="font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 17px; line-height: 24px; font-weight: 600; word-break: break-all">{{ d.q }}</div>
+<div style="font-size: 13px; color: #5C5C5C">{{ d.flagsText }}</div>
+<div style="font-size: 13px; word-break: break-all">{{ d.scope }}</div>
+<div style="font-size: 12px; color: #5C5C5C">{{ d.meta }}</div>
+<div style="display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px">
+<span style="font-weight: 600">{{ d.summary }}</span>
+<sc-if value="{{ d.hasSkipped }}" hint-placeholder-val="{{ false }}"><span style="color: #8A5300">{{ d.skippedText }}</span></sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px">
+<button type="button" onClick="{{ openResults }}" style="height: 32px; padding: 0 14px; border: 1px solid #005FB8; border-radius: 4px; background: #005FB8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Open results</button>
+<button type="button" onClick="{{ rerun }}" style="height: 32px; padding: 0 14px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Search again</button>
+<button type="button" onClick="{{ removeSel }}" style="height: 32px; padding: 0 14px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Remove from history</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 12px 20px 6px; font-size: 12px; color: #5C5C5C">
+<span style="font-weight: 600; color: #1B1B1B">Saved results</span>
+<span>Saved when the search ran · files may have changed since</span>
+</div>
+<div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px">
+<sc-for list="{{ d.top }}" as="t" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 12px; padding: 8px">
+<span style="{{ t.badgeStyle }}">{{ t.badge }}</span>
+<span style="flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px">
+<span style="flex: 0 1 auto; min-width: 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ t.name }}</span>
+<span style="flex: 1 1 0; min-width: 0; font-size: 12px; color: #6E6E6E; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{ t.dir }}</span>
+</span>
+<span style="flex: 0 0 auto; padding: 1px 8px; border-radius: 9px; background: #F0F0F0; color: #3B3B3B; font-size: 12px; line-height: 18px; white-space: nowrap">{{ t.count }}</span>
+</div>
+</sc-for>
+<sc-if value="{{ d.hasMore }}" hint-placeholder-val="{{ true }}">
+<div style="padding: 6px 8px; font-size: 12px; color: #5C5C5C">{{ d.more }}</div>
+</sc-if>
+</div>
+</sc-if>
+<sc-if value="{{ noDetail }}" hint-placeholder-val="{{ false }}">
+<p style="margin: auto; padding: 24px; font-size: 13px; color: #5C5C5C; text-align: center">Pick a search on the left to see its saved results.</p>
+</sc-if>
+</section>
+
+</div>
+</sc-if>
+
+<sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+<div style="box-sizing: border-box; max-width: 880px; display: flex; flex-direction: column; gap: 12px; padding: 4px 20px 16px 8px">
+<h1 style="margin: 4px 0 0; font-size: 20px; line-height: 28px; font-weight: 600">Settings</h1>
+
+<section aria-labelledby="set-ignored" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<h2 id="set-ignored" style="margin: 0; font-size: 15px; line-height: 22px; font-weight: 600">Ignored folders</h2>
+<p style="margin: 0; font-size: 13px; color: #5C5C5C">Folders with these names are skipped wherever they appear. Type a full path, such as C:\Windows, to skip only that one folder.</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{ ignored }}" as="g" hint-placeholder-count="6">
+<span style="display: inline-flex; align-items: center; gap: 2px; box-sizing: border-box; height: 30px; padding: 0 2px 0 10px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 12.5px">{{ g.name }}<button type="button" aria-label="{{ g.removeLabel }}" onClick="{{ g.remove }}" style="width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 3px; background: transparent; color: #5C5C5C; cursor: pointer"><svg viewBox="0 0 10 10" width="9" height="9" aria-hidden="true" style="display: block; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round"><path d="M1 1l8 8M9 1 1 9"></path></svg></button></span>
+</sc-for>
+<sc-if value="{{ noIgnored }}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; color: #5C5C5C">Nothing is ignored, so every folder is searched.</span>
+</sc-if>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px">
+<input type="text" aria-label="Folder name or path to ignore" placeholder="Folder name or full path" value="{{ newIgnore }}" onChange="{{ onNewIgnore }}" onKeyDown="{{ onIgnoreKey }}" style="flex: 0 1 320px; min-width: 160px; box-sizing: border-box; height: 32px; padding: 0 10px; border: 1px solid #D1D1D1; border-bottom: 2px solid #8A8A8A; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font-family: 'Cascadia Mono', 'Cascadia Code', Consolas, 'JetBrains Mono', monospace; font-size: 13px">
+<button type="button" onClick="{{ addIgnore }}" style="height: 32px; padding: 0 16px; border: 1px solid #005FB8; border-radius: 4px; background: #005FB8; color: #FFFFFF; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer">Add</button>
+<button type="button" onClick="{{ resetIgnore }}" style="height: 32px; padding: 0 12px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Reset to defaults</button>
+</div>
+<sc-if value="{{ hasIgnoreError }}" hint-placeholder-val="{{ false }}">
+<div role="alert" style="font-size: 12px; color: #A4262C">{{ ignoreError }}</div>
+</sc-if>
+</section>
+
+<section aria-labelledby="set-preview" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<div style="flex: 1 1 280px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h2 id="set-preview" style="margin: 0; font-size: 15px; line-height: 22px; font-weight: 600">Hover preview</h2>
+<p style="margin: 0; font-size: 13px; color: #5C5C5C">Lines shown above and below each match when you hover a result.</p>
+</div>
+<div style="display: inline-flex; align-items: center; border: 1px solid #D1D1D1; border-radius: 4px; background: #FFFFFF">
+<button type="button" aria-label="Fewer lines" onClick="{{ decCtx }}" style="width: 34px; height: 32px; border: 0; background: transparent; color: #1B1B1B; font: inherit; font-size: 16px; cursor: pointer">−</button>
+<output aria-live="polite" style="min-width: 36px; text-align: center; font-weight: 600">{{ ctx }}</output>
+<button type="button" aria-label="More lines" onClick="{{ incCtx }}" style="width: 34px; height: 32px; border: 0; background: transparent; color: #1B1B1B; font: inherit; font-size: 16px; cursor: pointer">+</button>
+</div>
+</section>
+
+<section aria-labelledby="set-ocr" style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<div style="flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+<h2 id="set-ocr" style="margin: 0; font-size: 15px; line-height: 22px; font-weight: 600">Text in images (OCR)</h2>
+<p style="margin: 0; font-size: 13px; color: #5C5C5C">Text read from pictures, scanned PDFs and pictures inside Office files is remembered, so searching the same files again skips the slow part.</p>
+<p style="margin: 0; font-size: 12px; color: #5C5C5C">{{ ocrCacheText }}</p>
+</div>
+<button type="button" onClick="{{ clearOcr }}" style="height: 32px; padding: 0 12px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Clear remembered text</button>
+</section>
+
+<section aria-labelledby="set-history" style="display: flex; flex-direction: column; gap: 10px; padding: 16px 20px; background: #FFFFFF; border: 1px solid #E5E5E5; border-radius: 8px">
+<h2 id="set-history" style="margin: 0; font-size: 15px; line-height: 22px; font-weight: 600">History</h2>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px">
+<label for="wds-keep">Keep the last</label>
+<select id="wds-keep" value="{{ keep }}" onChange="{{ onKeep }}" style="height: 32px; padding: 0 8px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FFFFFF; color: #1B1B1B; font: inherit; font-size: 13px">
+<option value="20">20</option>
+<option value="50">50</option>
+<option value="100">100</option>
+<option value="500">500</option>
+</select>
+<span>searches, with their results</span>
+<button type="button" onClick="{{ clearHistory }}" style="margin-left: auto; height: 32px; padding: 0 12px; border: 1px solid #D1D1D1; border-radius: 4px; background: #FBFBFB; color: #1B1B1B; font: inherit; font-size: 13px; cursor: pointer">Clear history</button>
+</div>
+<p style="margin: 0; font-size: 12px; color: #5C5C5C">Saved on this PC only, in %LOCALAPPDATA%\WinDeepSearch.</p>
+</section>
+
+<p style="margin: 0; font-size: 12px; color: #5C5C5C">Changes are saved automatically.</p>
+</div>
+</sc-if>
+
+</main>
+</div>
+
+<sc-if value="{{ hasToast }}" hint-placeholder-val="{{ false }}">
+<div role="status" style="position: absolute; left: 50%; bottom: 32px; z-index: 40; transform: translateX(-50%); box-sizing: border-box; max-width: 80%; padding: 10px 16px; border-radius: 6px; background: #2B2B2B; color: #FFFFFF; font-size: 13px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2)">{{ toast }}</div>
+</sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"view":{"editor":"enum","options":["search","history","settings"],"default":"search"},"$preview":{"width":1280,"height":820}}'>
+class Component extends DCLogic {
+  constructor(...args) {
+    super(...args);
+    const p = this.props || {};
+    this.H = this.history();
+    this.toastTimer = null;
+    this.state = {
+      view: p.view === 'history' || p.view === 'settings' ? p.view : 'search',
+      sel: 'h1',
+      filter: '',
+      removed: {},
+      ignored: this.defaults(),
+      newIgnore: '',
+      ignoreError: '',
+      ctx: 3,
+      keep: '50',
+      ocrCacheMB: 312,
+      toast: ''
+    };
+  }
+
+  componentWillUnmount() {
+    clearTimeout(this.toastTimer);
+  }
+
+  defaults() {
+    return ['.git', 'node_modules', 'bin', 'obj', '.vs', '.idea', '__pycache__', '$Recycle.Bin', 'System Volume Information'];
+  }
+
+  history() {
+    return [
+      { id: 'h1', q: 'invoice\\s*#?(?=\\d{4})', regex: true, caseS: false, ocr: true, scope: 'C:\\Users\\you\\Documents\\Clients\\Acme', when: 'Today, 09:41', took: '34.8 s', summary: '4 name matches · 46 matches in 13 files', short: '46 matches', skipped: 1,
+        top: [['Invoice 2041.pdf', 'billing\\2026', 'Name + 2 matches'], ['invoice2187.docx', 'billing\\2026\\drafts', 'Name + 1 match'], ['Invoice 1999 (paid).jpg', 'billing\\2025\\scans', 'Name + 1 match'], ['Invoice 2041 walkthrough.mp4', 'billing\\training', 'Name only'], ['billing-api-2026-10-02.log', 'logs', '23 matches'], ['InvoiceService.cs', 'src\\Billing', '4 matches'], ['meeting-notes.md', 'notes', '3 matches']], more: '+7 more files' },
+      { id: 'h2', q: 'TODO', regex: false, caseS: true, scope: 'C:\\src\\winapp', when: 'Today, 08:15', took: '3.1 s', summary: '128 matches in 37 files', short: '128 matches', skipped: 0,
+        top: [['MainWindow.xaml.cs', 'src\\App', '9 matches'], ['SearchEngine.cs', 'src\\Core', '7 matches'], ['ResultsView.xaml', 'src\\App\\Views', '5 matches'], ['README.md', '', '4 matches'], ['Installer.wxs', 'build', '3 matches']], more: '+32 more files' },
+      { id: 'h3', q: '(?<=Version=")\\d+\\.\\d+\\.\\d+', regex: true, caseS: true, scope: 'C:\\src', when: 'Mon 12 Oct, 14:02', took: '22.8 s', summary: '64 matches in 30 files', short: '64 matches', skipped: 0,
+        top: [['packages.lock.json', 'winapp\\src\\App', '12 matches'], ['Directory.Packages.props', 'winapp', '9 matches'], ['app.manifest', 'winapp\\src\\App', '1 match']], more: '+27 more files' },
+      { id: 'h4', q: 'quarterly forecast', regex: false, caseS: false, scope: 'C:\\', when: 'Fri 9 Oct, 16:20', took: '6 min 12 s', summary: '2 name matches · 9 matches in 5 files', short: '9 matches', skipped: 4,
+        top: [['Quarterly forecast FY27.xlsx', 'Users\\you\\OneDrive\\Finance', 'Name + 3 matches'], ['Quarterly forecast notes.docx', 'Users\\you\\Documents', 'Name + 1 match'], ['Board update.pptx', 'Users\\you\\Documents', '2 matches'], ['Q3 review.pdf', 'Users\\you\\Downloads', '2 matches'], ['Planning.md', 'Users\\you\\Notes', '1 match']], more: '' },
+      { id: 'h5', q: 'ConnectionString', regex: false, caseS: true, scope: 'C:\\inetpub', when: 'Sat 3 Oct, 11:05', took: '1.9 s', summary: '17 matches in 6 files', short: '17 matches', skipped: 0,
+        top: [['web.config', 'wwwroot\\api', '6 matches'], ['appsettings.json', 'wwwroot\\api', '4 matches'], ['appsettings.Production.json', 'wwwroot\\api', '3 matches']], more: '+3 more files' }
+    ];
+  }
+
+  badgeStyle(ext) {
+    const c = { pdf: ['#FDE7E9', '#A4262C'], docx: ['#E6EEFA', '#1B5BAE'], doc: ['#E6EEFA', '#1B5BAE'], xlsx: ['#E3F2E8', '#0E6B38'], pptx: ['#FBE9E0', '#A63D1E'], jpg: ['#EFE7F7', '#6B2FA0'] }[ext] || ['#EEEEEE', '#424242'];
+    return 'flex: 0 0 auto; box-sizing: border-box; width: 40px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 4px; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: 0.3px; background: ' + c[0] + '; color: ' + c[1];
+  }
+
+  showToast(msg) {
+    clearTimeout(this.toastTimer);
+    this.setState({ toast: msg });
+    this.toastTimer = setTimeout(() => this.setState({ toast: '' }), 2800);
+  }
+
+  addIgnore() {
+    const v = (this.state.newIgnore || '').trim();
+    if (!v) return;
+    if (this.state.ignored.some(x => x.toLowerCase() === v.toLowerCase())) {
+      this.setState({ ignoreError: '“' + v + '” is already in the list.' });
+      return;
+    }
+    this.setState({ ignored: this.state.ignored.concat([v]), newIgnore: '', ignoreError: '' });
+  }
+
+  removeSelected() {
+    const removed = Object.assign({}, this.state.removed);
+    removed[this.state.sel] = true;
+    const next = this.H.find(x => !removed[x.id]);
+    this.setState({ removed: removed, sel: next ? next.id : '' });
+  }
+
+  navStyle(on) {
+    return 'position: relative; display: flex; align-items: center; gap: 12px; width: 100%; box-sizing: border-box; height: 36px; padding: 0 12px; border: 0; border-radius: 4px; color: #1B1B1B; font: inherit; text-align: left; cursor: pointer; background: ' + (on ? '#E6E6E6' : 'transparent');
+  }
+
+  pillStyle(on) {
+    return 'position: absolute; left: 0; top: 10px; width: 3px; height: 16px; border-radius: 2px; background: ' + (on ? '#005FB8' : 'transparent');
+  }
+
+  renderVals() {
+    const s = this.state;
+    const v = s.view;
+    const f = s.filter.trim().toLowerCase();
+    const live = this.H.filter(x => !s.removed[x.id]);
+    const visible = live.filter(x => !f || x.q.toLowerCase().indexOf(f) >= 0 || x.scope.toLowerCase().indexOf(f) >= 0);
+    const hist = visible.map(x => ({
+      q: x.q,
+      flags: (x.regex ? [{ label: '.*', title: 'Regular expression' }] : []).concat(x.caseS ? [{ label: 'Aa', title: 'Match case' }] : []).concat(x.ocr ? [{ label: 'OCR', title: 'Text in images' }] : []),
+      scope: x.scope,
+      meta: x.when + ' · ' + x.short,
+      current: x.id === s.sel ? 'true' : 'false',
+      style: 'display: flex; flex-direction: column; gap: 2px; width: 100%; box-sizing: border-box; padding: 8px 10px; border: 0; border-radius: 6px; color: inherit; font: inherit; text-align: left; cursor: pointer; background: ' + (x.id === s.sel ? '#EAF1FB' : 'transparent'),
+      pick: () => this.setState({ sel: x.id })
+    }));
+    const cur = live.find(x => x.id === s.sel);
+    const d = cur ? {
+      q: cur.q,
+      flagsText: (cur.regex ? 'Regular expression' : 'Plain text') + ' · ' + (cur.caseS ? 'Match case' : 'Ignore case') + (cur.ocr ? ' · Text in images' : ''),
+      scope: cur.scope,
+      meta: 'Searched ' + cur.when + ' · took ' + cur.took,
+      summary: cur.summary,
+      hasSkipped: cur.skipped > 0,
+      skippedText: cur.skipped + (cur.skipped === 1 ? ' file skipped' : ' files skipped'),
+      top: cur.top.map(t => {
+        const ext = t[0].split('.').pop().toLowerCase();
+        return { name: t[0], dir: t[1], count: t[2], badge: ext.toUpperCase(), badgeStyle: this.badgeStyle(ext) };
+      }),
+      hasMore: !!cur.more,
+      more: cur.more
+    } : { q: '', flagsText: '', scope: '', meta: '', summary: '', hasSkipped: false, skippedText: '', top: [], hasMore: false, more: '' };
+
+    return {
+      isSearch: v === 'search',
+      isHistory: v === 'history',
+      isSettings: v === 'settings',
+      nav: {
+        search: this.navStyle(v === 'search'), searchPill: this.pillStyle(v === 'search'), searchCur: v === 'search' ? 'page' : 'false',
+        history: this.navStyle(v === 'history'), historyPill: this.pillStyle(v === 'history'), historyCur: v === 'history' ? 'page' : 'false',
+        settings: this.navStyle(v === 'settings'), settingsPill: this.pillStyle(v === 'settings'), settingsCur: v === 'settings' ? 'page' : 'false'
+      },
+      goSearch: () => this.setState({ view: 'search' }),
+      goHistory: () => this.setState({ view: 'history' }),
+      goSettings: () => this.setState({ view: 'settings' }),
+
+      filter: s.filter,
+      onFilter: e => this.setState({ filter: e.target.value }),
+      histCountText: live.length + (live.length === 1 ? ' search saved' : ' searches saved'),
+      hist: hist,
+      histEmpty: hist.length === 0,
+      histEmptyText: live.length ? 'No saved searches match that filter.' : 'No saved searches yet.',
+      hasDetail: !!cur,
+      noDetail: !cur,
+      d: d,
+      openResults: () => this.showToast('Opens a search window showing these saved results'),
+      rerun: () => this.showToast('Runs this search again with the same text, options and folder'),
+      removeSel: () => this.removeSelected(),
+
+      ignored: s.ignored.map(name => ({
+        name: name,
+        removeLabel: 'Stop ignoring ' + name,
+        remove: () => this.setState({ ignored: this.state.ignored.filter(x => x !== name) })
+      })),
+      noIgnored: s.ignored.length === 0,
+      newIgnore: s.newIgnore,
+      onNewIgnore: e => this.setState({ newIgnore: e.target.value, ignoreError: '' }),
+      onIgnoreKey: e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.addIgnore();
+        }
+      },
+      addIgnore: () => this.addIgnore(),
+      resetIgnore: () => this.setState({ ignored: this.defaults(), ignoreError: '' }),
+      hasIgnoreError: !!s.ignoreError,
+      ignoreError: s.ignoreError,
+      ctx: String(s.ctx),
+      decCtx: () => this.setState({ ctx: Math.max(0, this.state.ctx - 1) }),
+      incCtx: () => this.setState({ ctx: Math.min(20, this.state.ctx + 1) }),
+      keep: s.keep,
+      onKeep: e => this.setState({ keep: e.target.value }),
+      ocrCacheText: s.ocrCacheMB ? 'Using ' + s.ocrCacheMB + ' MB on this PC.' : 'Nothing remembered yet.',
+      clearOcr: () => {
+        this.setState({ ocrCacheMB: 0 });
+        this.showToast('Remembered image text cleared');
+      },
+      clearHistory: () => {
+        const removed = {};
+        this.H.forEach(x => { removed[x.id] = true; });
+        this.setState({ removed: removed, sel: '' });
+        this.showToast('History cleared');
+      },
+
+      hasToast: !!s.toast,
+      toast: s.toast
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,3 @@
+hyperlink.doc, Simple.xls and basic_test_ppt_file.ppt come from the Apache POI test data
+(https://github.com/apache/poi/tree/trunk/test-data) and are licensed under the Apache License 2.0.
+They are real Word 97, Excel 97 and PowerPoint 97 files, used to test reading the older Office formats.

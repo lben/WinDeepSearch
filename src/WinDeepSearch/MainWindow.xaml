@@ -1,0 +1,43 @@
+<Window x:Class="WinDeepSearch.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:WinDeepSearch"
+        Title="WinDeepSearch" Width="1280" Height="820" MinWidth="900" MinHeight="520"
+        WindowStartupLocation="CenterScreen" Icon="Assets/WinDeepSearch.ico">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <ListBox x:Name="Nav" Margin="8,4" BorderThickness="0" Background="Transparent" SelectionChanged="Nav_SelectionChanged"
+                 AutomationProperties.AutomationId="Navigation" AutomationProperties.Name="Sections">
+            <ListBoxItem x:Name="NavSearch" AutomationProperties.AutomationId="NavSearch" AutomationProperties.Name="Search">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="M7,2.5 A4.5,4.5 0 1 1 6.99,2.5 M10.5,10.5 L14,14" Width="16" Height="16" StrokeThickness="1.3" StrokeEndLineCap="Round"
+                          Stroke="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="Search" Margin="12,0,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+            <ListBoxItem x:Name="NavHistory" AutomationProperties.AutomationId="NavHistory" AutomationProperties.Name="History">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="M8,2 A6,6 0 1 1 7.99,2 M8,4.5 L8,8 L10.5,9.5" Width="16" Height="16" StrokeThickness="1.3" StrokeEndLineCap="Round"
+                          Stroke="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="History" Margin="12,0,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+            <ListBoxItem x:Name="NavSettings" AutomationProperties.AutomationId="NavSettings" AutomationProperties.Name="Settings">
+                <StackPanel Orientation="Horizontal">
+                    <Path Data="M8,5.8 A2.2,2.2 0 1 1 7.99,5.8 M8,1.5 L8,3.5 M8,12.5 L8,14.5 M1.5,8 L3.5,8 M12.5,8 L14.5,8 M3.4,3.4 L4.8,4.8 M11.2,11.2 L12.6,12.6 M3.4,12.6 L4.8,11.2 M11.2,4.8 L12.6,3.4"
+                          Width="16" Height="16" StrokeThickness="1.3" StrokeEndLineCap="Round" StrokeStartLineCap="Round"
+                          Stroke="{DynamicResource TextFillColorPrimaryBrush}" />
+                    <TextBlock Text="Settings" Margin="12,0,0,0" />
+                </StackPanel>
+            </ListBoxItem>
+        </ListBox>
+
+        <local:SearchView x:Name="SearchPage" Grid.Column="1" />
+        <local:HistoryView x:Name="HistoryPage" Grid.Column="1" Visibility="Collapsed" />
+        <local:SettingsView x:Name="SettingsPage" Grid.Column="1" Visibility="Collapsed" />
+    </Grid>
+</Window>
