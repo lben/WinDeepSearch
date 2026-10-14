@@ -21,6 +21,8 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
 
 - Up to 5,000 matching lines are kept per file, and 200,000 per search; past that the count is still exact and the
   list says that later lines were not kept.
+- Large text files are read in 4-million-character chunks; a single match longer than about 64,000 characters that
+  crosses a chunk boundary is not found.
 - Excel binary workbooks (.xlsb), Outlook messages, Visio, Publisher and OneNote files are read with the filters that
   Microsoft Office installs; without them they are counted as "couldn't be read".
 - OneDrive files that are only online are not downloaded; they are listed as skipped.
@@ -50,7 +52,8 @@ Copy-Item build/shellext/Release/WinDeepSearch.ShellExt.dll artifacts/app/
 iscc packaging/WinDeepSearch.iss
 ```
 
-The engine and its tests also build and run on macOS and Linux (`dotnet test --project tests/WinDeepSearch.Core.Tests`).
+The engine and its tests also build and run on macOS (`dotnet test --project tests/WinDeepSearch.Core.Tests`); the
+Windows-only tests are skipped there.
 `.github/workflows/build.yml` builds the installer on Windows, installs it, runs the UI tests against the installed app
 (including the Explorer menus) and keeps screenshots.
 
