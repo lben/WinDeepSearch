@@ -50,10 +50,12 @@ jobs:
           $package = Get-AppxPackage -Name WinDeepSearch
           if (-not $package) { throw 'The Windows 11 menu package is not registered.' }
           $package | Format-List Name, Version, InstallLocation, Status
-          foreach ($type in '*', 'Directory', 'Directory\Background', 'Drive') {
-            $command = (Get-ItemProperty -LiteralPath "HKCU:\Software\Classes\$type\shell\WinDeepSearch\command").'(default)'
-            if (-not $command) { throw "The classic menu entry for $type is missing." }
-            Write-Host "$type -> $command"
+          # The packaged entry also covers "Show more options"; a classic entry is only needed for drives.
+          $drive = (Get-ItemProperty -LiteralPath 'HKCU:\Software\Classes\Drive\shell\WinDeepSearch\command').'(default)'
+          if (-not $drive) { throw 'The classic menu entry for drives is missing.' }
+          Write-Host "Drive -> $drive"
+          foreach ($type in '*', 'Directory', 'Directory\Background') {
+            if (Test-Path -LiteralPath "HKCU:\Software\Classes\$type\shell\WinDeepSearch") { throw "A duplicate classic entry exists for $type." }
           }
 
       - name: UI tests
@@ -66,7 +68,7 @@ jobs:
           $p = Start-Process "$env:LOCALAPPDATA\Programs\WinDeepSearch\unins000.exe" -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "Uninstall failed with $($p.ExitCode)" }
           if (Get-AppxPackage -Name WinDeepSearch) { throw 'The menu package is still registered.' }
-          if (Test-Path 'HKCU:\Software\Classes\Directory\shell\WinDeepSearch') { throw 'The classic menu entry is still there.' }
+          if (Test-Path -LiteralPath 'HKCU:\Software\Classes\Drive\shell\WinDeepSearch') { throw 'The classic menu entry is still there.' }
 
       - uses: actions/upload-artifact@v4
         if: always()

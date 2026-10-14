@@ -10,7 +10,7 @@ namespace WinDeepSearch;
 
 /// <summary>
 /// Adds and removes the right-click entries. The installer runs "--register" after installing and
-/// "--unregister" before uninstalling. Exit code 0: both menus; 1: only the classic "Show more options" menu.
+/// "--unregister" before uninstalling. Exit code 0: Windows 11 menu registered; 1: only classic entries.
 /// </summary>
 static class Registration
 {
@@ -27,24 +27,32 @@ static class Registration
 
     public static int Register()
     {
-        RegisterClassicMenu();
+        bool windows11Menu;
         try
         {
             RegisterWindows11Menu();
-            Log("Registered both menus.");
-            return 0;
+            windows11Menu = true;
+            Log("Registered the Windows 11 menu entry.");
         }
         catch (Exception e)
         {
-            Log("Only the classic menu was registered: " + e.Message);
-            return 1;
+            windows11Menu = false;
+            Log("Only classic menu entries were registered: " + e.Message);
         }
+
+        // The packaged entry also appears under "Show more options", so classic entries are added only where it
+        // doesn't reach (drives, which the package can't declare), or everywhere when it couldn't be registered.
+        foreach (var type in ItemTypes)
+        {
+            if (windows11Menu && type != "Drive") RemoveClassicEntry(type);
+            else AddClassicEntry(type);
+        }
+        return windows11Menu ? 0 : 1;
     }
 
     public static int Unregister()
     {
-        foreach (var type in ItemTypes)
-            Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\{type}\shell\{Verb}", throwOnMissingSubKey: false);
+        foreach (var type in ItemTypes) RemoveClassicEntry(type);
         try
         {
             RemovePackage(new PackageManager());
@@ -57,18 +65,18 @@ static class Registration
         }
     }
 
-    static void RegisterClassicMenu()
+    static void AddClassicEntry(string type)
     {
-        foreach (var type in ItemTypes)
-        {
-            using var verb = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{type}\shell\{Verb}");
-            verb.SetValue("", "WinDeepSearch");
-            verb.SetValue("Icon", $"\"{Exe}\",0");
-            using var command = verb.CreateSubKey("command");
-            // The background of an open folder is passed as %V; everything else as %1.
-            command.SetValue("", $"\"{Exe}\" --path \"{(type == @"Directory\Background" ? "%V" : "%1")}\"");
-        }
+        using var verb = Registry.CurrentUser.CreateSubKey($@"Software\Classes\{type}\shell\{Verb}");
+        verb.SetValue("", "WinDeepSearch");
+        verb.SetValue("Icon", $"\"{Exe}\",0");
+        using var command = verb.CreateSubKey("command");
+        // The background of an open folder is passed as %V; everything else as %1.
+        command.SetValue("", $"\"{Exe}\" --path \"{(type == @"Directory\Background" ? "%V" : "%1")}\"");
     }
+
+    static void RemoveClassicEntry(string type) =>
+        Registry.CurrentUser.DeleteSubKeyTree($@"Software\Classes\{type}\shell\{Verb}", throwOnMissingSubKey: false);
 
     /// <summary>
     /// The Windows 11 menu only lists entries from packaged apps, so a small "sparse" package that points at

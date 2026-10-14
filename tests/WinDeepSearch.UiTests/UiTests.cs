@@ -227,6 +227,7 @@ public sealed class UiTests : IDisposable
             var classic = Retry.WhileNull(() => _automation.GetDesktop().FindFirstChild(cf => cf.ByClassName("#32768")), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
             entry = WaitForMenuItem(classic);
             ShotScreen("14-classic-menu");
+            Assert.Single(classic.FindAllDescendants(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("WinDeepSearch"))));
             entry.Click();
             Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — billing.log"), TimeSpan.FromSeconds(30), throwOnTimeout: true);
         }
