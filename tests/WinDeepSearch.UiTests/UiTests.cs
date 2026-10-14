@@ -214,17 +214,18 @@ public sealed class UiTests : IDisposable
 
             // Windows 11 menu.
             file.RightClick();
-            var entry = WaitForMenuItem();
+            var entry = WaitForMenuItem(_automation.GetDesktop());
             ShotScreen("12-windows11-menu");
             entry.Click();
             var window = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — billing.log"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
             Shot(window, "13-opened-from-menu");
             window.Close();
 
-            // "Show more options" (classic) menu, which Shift+F10 opens directly.
-            file.Click();
-            Keyboard.TypeSimultaneously(VirtualKeyShort.SHIFT, VirtualKeyShort.F10);
-            entry = WaitForMenuItem();
+            // The classic menu behind "Show more options" (a Win32 menu, window class #32768).
+            file.RightClick();
+            WaitForMenuItem(_automation.GetDesktop(), "Show more options").Click();
+            var classic = Retry.WhileNull(() => _automation.GetDesktop().FindFirstChild(cf => cf.ByClassName("#32768")), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+            entry = WaitForMenuItem(classic);
             ShotScreen("14-classic-menu");
             entry.Click();
             Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — billing.log"), TimeSpan.FromSeconds(30), throwOnTimeout: true);
@@ -309,8 +310,8 @@ public sealed class UiTests : IDisposable
         return tip;
     }
 
-    AutomationElement WaitForMenuItem() =>
-        Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName("WinDeepSearch"))),
+    static AutomationElement WaitForMenuItem(AutomationElement within, string name = "WinDeepSearch") =>
+        Retry.WhileNull(() => within.FindFirstDescendant(cf => cf.ByControlType(ControlType.MenuItem).And(cf.ByName(name))),
             TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
 
     // The title is the folder name, followed by " - File Explorer" on some Windows versions.
