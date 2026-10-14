@@ -98,7 +98,7 @@ public sealed class UiTests : IDisposable
 
         // Clicking a match opens File Explorer on the file's folder, with the file selected.
         Item(window, "Line 2 ·").Click();
-        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(20), throwOnTimeout: true).Result;
+        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(20), throwOnTimeout: true, ignoreException: true).Result;
         var selected = Retry.WhileNull(() => ExplorerSelection(_dir), TimeSpan.FromSeconds(20)).Result;
         ShotScreen("05b-explorer-selection");
         Assert.True(selected == Path.Combine(_dir, "billing.log"), $"Selected: {selected ?? "nothing"}. Explorer windows: {DescribeExplorerWindows()}");
@@ -261,7 +261,7 @@ public sealed class UiTests : IDisposable
     public void ExplorerRightClickMenusOpenASearchWindow()
     {
         Process.Start(new ProcessStartInfo("explorer.exe", $"\"{_dir}\"") { UseShellExecute = true });
-        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30)).Result;
+        var explorer = Retry.WhileNull(() => ExplorerWindow("Acme"), TimeSpan.FromSeconds(30), ignoreException: true).Result;
         if (explorer == null)
         {
             ShotScreen("explorer-missing");
