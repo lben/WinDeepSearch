@@ -2,6 +2,9 @@ using System.Text.Json;
 
 namespace WinDeepSearch.Core;
 
+/// <param name="Root">The folder searched; for a selection, the folder the selected items are in.</param>
+/// <param name="SingleFile">Set when only this file was searched.</param>
+/// <param name="Items">Set when the search covered these selected files and folders only.</param>
 public sealed record HistorySummary(
     string Id,
     DateTimeOffset StartedAt,
@@ -13,7 +16,8 @@ public sealed record HistorySummary(
     int Matches,
     int FilesWithMatches,
     int Skipped,
-    bool Stopped);
+    bool Stopped,
+    IReadOnlyList<string>? Items = null);
 
 /// <summary>Past searches with their results, one pair of files per search so several windows can write safely.</summary>
 public sealed class HistoryStore(string dir)

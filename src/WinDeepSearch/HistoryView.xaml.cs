@@ -10,7 +10,9 @@ public sealed class HistoryItem(HistorySummary summary)
 {
     public HistorySummary Summary { get; } = summary;
     public string Query => Summary.Query.Text;
-    public string Scope => Summary.SingleFile ?? Summary.Root;
+    public string Scope => Summary.Items is { } items
+        ? $"{items.Count:N0} selected items{(Summary.Root.Length > 0 ? " in " + Summary.Root : "")}: {string.Join(", ", items.Select(SearchTarget.NameOf))}"
+        : Summary.SingleFile ?? Summary.Root;
 
     public IReadOnlyList<string> Flags { get; } =
     [

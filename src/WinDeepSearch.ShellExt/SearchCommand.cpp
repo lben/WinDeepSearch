@@ -1,7 +1,8 @@
 // The "WinDeepSearch" entry of the Windows 11 right-click menu. Windows only lists commands from packaged
 // apps there, so the sparse package (packaging/AppxManifest.xml) declares this COM class; Invoke starts
-// WinDeepSearch.exe, which sits in the same folder as this DLL, with the clicked file or folder.
+// WinDeepSearch.exe, which sits in the same folder as this DLL, with the selected files and folders.
 #include <windows.h>
+#include <objbase.h>
 #include <shellapi.h>
 #include <shlguid.h>
 #include <shlobj_core.h>
@@ -12,6 +13,7 @@
 #include <wrl/module.h>
 
 #include <string>
+#include <vector>
 
 using Microsoft::WRL::ClassicCom;
 using Microsoft::WRL::ComPtr;
@@ -48,6 +50,30 @@ static HRESULT FolderFromSite(IUnknown* site, PWSTR* path)
     if (SUCCEEDED(hr)) hr = folderView->GetFolder(IID_PPV_ARGS(&folder));
     if (SUCCEEDED(hr)) hr = folder->GetDisplayName(SIGDN_FILESYSPATH, path);
     return hr;
+}
+
+// Several selected items go to the app in a list file, one path per line: a command line holds at most
+// 32,767 characters. The app deletes the file once it has read it.
+static HRESULT WriteList(const std::vector<std::wstring>& paths, std::wstring* file)
+{
+    wchar_t folder[MAX_PATH + 1];
+    if (!GetTempPathW(ARRAYSIZE(folder), folder)) return HRESULT_FROM_WIN32(GetLastError());
+    GUID id;
+    HRESULT hr = CoCreateGuid(&id);
+    if (FAILED(hr)) return hr;
+    wchar_t name[40];
+    StringFromGUID2(id, name, ARRAYSIZE(name));
+    *file = std::wstring(folder) + L"WinDeepSearch-selection-" + name + L".txt";
+
+    std::wstring text = L"\xFEFF"; // UTF-16 byte order mark
+    for (const auto& path : paths) text += path + L"\r\n";
+    HANDLE handle = CreateFileW(file->c_str(), GENERIC_WRITE, 0, nullptr, CREATE_NEW, FILE_ATTRIBUTE_TEMPORARY, nullptr);
+    if (handle == INVALID_HANDLE_VALUE) return HRESULT_FROM_WIN32(GetLastError());
+    DWORD written = 0;
+    BOOL ok = WriteFile(handle, text.data(), static_cast<DWORD>(text.size() * sizeof(wchar_t)), &written, nullptr);
+    DWORD error = GetLastError();
+    CloseHandle(handle);
+    return ok ? S_OK : HRESULT_FROM_WIN32(error);
 }
 
 class __declspec(uuid("2CADCD13-EDE6-4B0F-94BB-2C46DF5954F1")) SearchCommand final
@@ -90,26 +116,51 @@ public:
 
     IFACEMETHODIMP Invoke(IShellItemArray* items, IBindCtx*) override
     {
-        PWSTR path = nullptr;
-        HRESULT hr;
+        std::vector<std::wstring> paths;
+        HRESULT hr = S_OK;
         DWORD count = 0;
         if (items && SUCCEEDED(items->GetCount(&count)) && count > 0)
         {
-            ComPtr<IShellItem> item;
-            hr = items->GetItemAt(0, &item);
-            if (SUCCEEDED(hr)) hr = item->GetDisplayName(SIGDN_FILESYSPATH, &path);
+            for (DWORD i = 0; i < count && SUCCEEDED(hr); i++)
+            {
+                ComPtr<IShellItem> item;
+                PWSTR path = nullptr;
+                hr = items->GetItemAt(i, &item);
+                if (SUCCEEDED(hr)) hr = item->GetDisplayName(SIGDN_FILESYSPATH, &path);
+                if (SUCCEEDED(hr))
+                {
+                    paths.emplace_back(path);
+                    CoTaskMemFree(path);
+                }
+            }
         }
         else
         {
+            PWSTR path = nullptr;
             hr = FolderFromSite(m_site.Get(), &path);
+            if (SUCCEEDED(hr))
+            {
+                paths.emplace_back(path);
+                CoTaskMemFree(path);
+            }
         }
         if (FAILED(hr)) return hr;
 
-        std::wstring target(path);
-        CoTaskMemFree(path);
-        // In "C:\" the trailing backslash would escape the closing quote; doubling it keeps the quote.
-        if (!target.empty() && target.back() == L'\\') target += L'\\';
-        std::wstring arguments = L"--path \"" + target + L"\"";
+        std::wstring arguments;
+        if (paths.size() == 1)
+        {
+            std::wstring target = paths[0];
+            // In "C:\" the trailing backslash would escape the closing quote; doubling it keeps the quote.
+            if (!target.empty() && target.back() == L'\\') target += L'\\';
+            arguments = L"--path \"" + target + L"\"";
+        }
+        else
+        {
+            std::wstring list;
+            hr = WriteList(paths, &list);
+            if (FAILED(hr)) return hr;
+            arguments = L"--items \"" + list + L"\"";
+        }
         std::wstring exe = ExePath();
 
         SHELLEXECUTEINFOW info{};

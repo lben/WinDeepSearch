@@ -123,6 +123,56 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void SearchingSelectedItemsCoversOnlyThemAndTheirSubfolders()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "Archive", "2019"));
+        File.WriteAllText(Path.Combine(_dir, "Archive", "2019", "old.txt"), "Invoice #1999 paid");
+        File.WriteAllText(Path.Combine(_dir, "extra1.txt"), "nothing relevant inside");
+        File.WriteAllText(Path.Combine(_dir, "extra2.txt"), "nothing relevant inside");
+        // The list the Windows 11 menu command writes for several selected items.
+        string list = Path.Combine(Path.GetTempPath(), $"WinDeepSearch-selection-{Guid.NewGuid():N}.txt");
+        string[] selected = ["letter.docx", "Archive", "billing.log", "pages.tif", "Invoice 2041.txt", "extra1.txt", "extra2.txt"];
+        File.WriteAllLines(list, selected.Select(name => Path.Combine(_dir, name)));
+
+        var window = Launch("--items", list);
+        Assert.Equal("WinDeepSearch — 7 selected items", window.Title);
+        Assert.False(File.Exists(list), "The app deletes the list once it has read it.");
+        Assert.Contains($"Search in 7 selected items and their subfolders, in {_dir}", Texts(window));
+        // Folders first, then files, as Explorer lists them; past six items, the first five and "+2 more".
+        var chips = window.FindFirstDescendant(cf => cf.ByAutomationId("SelectedItems"));
+        Assert.Equal(["Archive", "billing.log", "extra1.txt", "extra2.txt", "Invoice 2041.txt"], SelectedNames(chips));
+        Shot(window, "06a-selected-items");
+        var more = chips.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).AsButton();
+        Assert.Equal("+2 more", more.Name);
+        more.Invoke();
+        Retry.WhileFalse(() => SelectedNames(chips).Count == 7, TimeSpan.FromSeconds(5), throwOnTimeout: true);
+        Assert.Equal("Show fewer", chips.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).Name);
+
+        Search(window, "Invoice", regex: false);
+        var names = ResultNames(window);
+        Assert.Contains("billing.log · 7 matches", names);
+        Assert.Contains("letter.docx · 1 match", names);
+        Assert.Contains("old.txt · 1 match", names);
+        Assert.DoesNotContain(names, n => n.StartsWith("contract.pdf") || n.StartsWith("scan.png"));
+        Shot(window, "06b-selected-items-results");
+    }
+
+    [Fact]
+    public void ClassicMenuCopiesForOneSelectionShareOneWindow()
+    {
+        // The classic menu starts the app once per selected item, all at about the same time.
+        string[] selected = ["Archive", "billing.log", "letter.docx"];
+        foreach (string name in selected)
+            Process.Start(new ProcessStartInfo(AppExe) { ArgumentList = { "--select", Path.Combine(_dir, name) } });
+
+        var window = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — 3 selected items"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+        Assert.Equal(selected, SelectedNames(window));
+        Retry.WhileFalse(() => Process.GetProcessesByName("WinDeepSearch").Length == 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
+        Assert.Single(_automation.GetDesktop().FindAllChildren(cf => cf.ByControlType(ControlType.Window)), w => w.Name.StartsWith("WinDeepSearch"));
+        Shot(window, "06c-classic-menu-selection");
+    }
+
+    [Fact]
     public void ListingEveryMatchSaysWhenLinesWereNotKept()
     {
         string dir = Directory.CreateTempSubdirectory("wds-many-").FullName;
@@ -320,6 +370,16 @@ public sealed class UiTests : IDisposable
             WaitForMenuItem(_automation.GetDesktop()).Click();
             Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — Archive"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result.Close();
 
+            // A file and a folder selected together.
+            file.Patterns.SelectionItem.Pattern.Select();
+            folder.Patterns.SelectionItem.Pattern.AddToSelection();
+            folder.RightClick();
+            WaitForMenuItem(_automation.GetDesktop()).Click();
+            var both = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — 2 selected items"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+            Assert.Equal(["Archive", "billing.log"], SelectedNames(both));
+            Shot(both, "14b-two-selected-items");
+            both.Close();
+
             // The empty space inside the open folder.
             var view = explorer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List).And(cf.ByName("Items View")))
                 ?? explorer.FindFirstDescendant(cf => cf.ByControlType(ControlType.List));
@@ -501,6 +561,10 @@ public sealed class UiTests : IDisposable
         }
         return found.Count == 0 ? "none" : string.Join(" | ", found);
     }
+
+    /// <summary>The names of the selected items listed under the search scope.</summary>
+    static List<string> SelectedNames(AutomationElement element) =>
+        element.FindAllDescendants(cf => cf.ByAutomationId("SelectedItemName")).Select(t => t.Name).ToList();
 
     static List<string> Texts(AutomationElement element) =>
         element.FindAllDescendants(cf => cf.ByControlType(ControlType.Text)).Select(t => t.Name).Where(n => !string.IsNullOrEmpty(n)).ToList();
