@@ -54,11 +54,22 @@ public sealed record SearchTarget(string Root, string? SelectedFile, bool FromAp
     }
 }
 
+// Classes, not records: UI Automation keeps its entry for an item equal to one shown before, so rebuilt chips
+// equal by value would be missing for screen readers.
+
 /// <summary>A selected file or folder, in the line that says what a search covers.</summary>
-public sealed record SelectedItem(string Name, string FullPath, bool IsFolder);
+public sealed class SelectedItem(string name, string fullPath, bool isFolder)
+{
+    public string Name { get; } = name;
+    public string FullPath { get; } = fullPath;
+    public bool IsFolder { get; } = isFolder;
+}
 
 /// <summary>"+8 more" or "Show fewer" after the first selected items.</summary>
-public sealed record MoreItems(string Label);
+public sealed class MoreItems(string label)
+{
+    public string Label { get; } = label;
+}
 
 public partial class SearchView : UserControl
 {
