@@ -395,11 +395,12 @@ public sealed class UiTests : IDisposable
     [Fact]
     public void SettingsChangedInTwoWindowsAreBothKept()
     {
-        // Every window is a process of its own, and each shows Settings.
+        // Every window is a process of its own, and each shows Settings. The windows open on top of each other, so
+        // the pages are picked without the mouse.
         var first = Launch();
         var second = Launch();
-        first.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).Click();
-        second.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).Click();
+        first.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).AsListBoxItem().Select();
+        second.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).AsListBoxItem().Select();
         try
         {
             AddIgnored(first, "zz-first");
