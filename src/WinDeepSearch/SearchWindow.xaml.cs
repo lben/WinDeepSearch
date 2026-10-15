@@ -10,25 +10,34 @@ public partial class SearchWindow : Window
     public SearchWindow(SearchTarget target)
     {
         InitializeComponent();
+        ShowTarget(target);
+    }
+
+    void ShowTarget(SearchTarget target)
+    {
         string name = Path.GetFileName(Path.TrimEndingDirectorySeparator(target.SelectedFile ?? target.Root));
-        Title = "WinDeepSearch — " + (name.Length > 0 ? name : target.Root);
+        Title = "WinDeepSearch — " + (target.Items != null ? $"{target.Items.Count:N0} selected items" : name.Length > 0 ? name : target.Root);
         View.Show(target);
+    }
+
+    /// <summary>Adds an item selected together with the ones this window shows (see <see cref="Selection"/>).</summary>
+    public void AddItem(string path)
+    {
+        var target = View.Target;
+        ShowTarget(SearchTarget.FromPaths([.. target.Items ?? [target.SelectedFile ?? target.Root], path]));
     }
 
     public static void OpenSaved(HistorySummary summary, IReadOnlyList<FileResult> results)
     {
-        var window = new SearchWindow(TargetOf(summary));
+        var window = new SearchWindow(SearchTarget.Of(summary));
         window.View.ShowSaved(summary, results);
         window.Show();
     }
 
     public static void RunAgain(HistorySummary summary)
     {
-        var window = new SearchWindow(TargetOf(summary));
+        var window = new SearchWindow(SearchTarget.Of(summary));
         window.Show();
         _ = window.View.RunAgainAsync(summary);
     }
-
-    static SearchTarget TargetOf(HistorySummary summary) =>
-        summary.SingleFile != null ? SearchTarget.FromPath(summary.SingleFile) : new SearchTarget(summary.Root, null, false);
 }

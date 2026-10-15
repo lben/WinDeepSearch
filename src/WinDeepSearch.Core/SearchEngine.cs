@@ -41,14 +41,13 @@ public sealed class ActiveFile(string path, long length, CancellationTokenSource
 }
 
 /// <summary>
-/// Searches every file under a folder (or one file) on all cores. Results, skipped files and the files being
-/// read are published in thread-safe collections for the window to poll.
+/// Searches folders, with everything under them, and single files on all cores. Results, skipped files and the
+/// files being read are published in thread-safe collections for the window to poll.
 /// </summary>
 public sealed class SearchEngine
 {
     readonly Matcher _matcher;
-    readonly string _root;
-    readonly string? _singleFile;
+    readonly IReadOnlyList<string> _targets;
     readonly IReadOnlyList<string> _ignored;
     readonly ImageText? _images;
     readonly string _dataFolder;
@@ -58,15 +57,15 @@ public sealed class SearchEngine
     long _found, _done, _unreadable;
     volatile bool _enumerating = true;
 
+    /// <param name="targets">Full paths of folders, searched with all their subfolders, and of single files.</param>
     /// <param name="dataFolder">
     /// The app's own data (history, remembered picture text), never searched: it holds earlier queries and
     /// results, which would otherwise top the results of every later search of a parent folder.
     /// </param>
-    public SearchEngine(SearchQuery query, string root, string? singleFile, Settings settings, ImageText images, string dataFolder)
+    public SearchEngine(SearchQuery query, IReadOnlyList<string> targets, Settings settings, ImageText images, string dataFolder)
     {
         _matcher = new Matcher(query, settings.ContextLines);
-        _root = root;
-        _singleFile = singleFile;
+        _targets = targets;
         _ignored = settings.IgnoredFolders;
         _images = query.ReadImages ? images : null;
         _dataFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataFolder));
@@ -102,16 +101,15 @@ public sealed class SearchEngine
     {
         try
         {
-            if (_singleFile != null)
+            var pending = new Stack<DirectoryInfo>();
+            foreach (string target in Outermost(_targets))
             {
-                var info = new FileInfo(_singleFile);
-                await Add(info, ct);
-                return;
+                // A file that is gone by now is still listed, and counted as unreadable.
+                if (Directory.Exists(target)) pending.Push(new DirectoryInfo(target));
+                else await Add(new FileInfo(target), ct);
             }
 
             var options = new EnumerationOptions { IgnoreInaccessible = true, AttributesToSkip = 0, RecurseSubdirectories = false };
-            var pending = new Stack<DirectoryInfo>();
-            pending.Push(new DirectoryInfo(_root));
             while (pending.Count > 0)
             {
                 var dir = pending.Pop();
@@ -144,6 +142,15 @@ public sealed class SearchEngine
             _files.Writer.Complete();
         }
     }
+
+    /// <summary>
+    /// Explorer's search results can select a folder together with something inside it; search that only once.
+    /// </summary>
+    static IEnumerable<string> Outermost(IReadOnlyList<string> targets) =>
+        targets.Distinct(StringComparer.OrdinalIgnoreCase).Where(target => !targets.Any(other =>
+            // A drive root ("D:\") already ends in a separator.
+            target.StartsWith(Path.EndsInDirectorySeparator(other) ? other : other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !target.Equals(other, StringComparison.OrdinalIgnoreCase)));
 
     async Task Add(FileInfo file, CancellationToken ct)
     {

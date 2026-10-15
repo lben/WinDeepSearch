@@ -25,9 +25,25 @@ public partial class App : Application
         Settings = Settings.Load(AppPaths.SettingsFile);
         ImageDecoder.Fallback = WicDecoder.Decode;
 
-        string? path = e.Args is ["--path", var p] ? CleanPath(p) : null;
-        Window window = path != null ? new SearchWindow(SearchTarget.FromPath(path)) : new MainWindow();
-        window.Show();
+        switch (e.Args)
+        {
+            // The Windows 11 menu, for one item; the classic menu, for the empty space inside a folder.
+            case ["--path", var path]:
+                new SearchWindow(SearchTarget.FromPath(CleanPath(path))).Show();
+                break;
+            // The Windows 11 menu, for several items.
+            case ["--items", var list]:
+                new SearchWindow(SearchTarget.FromPaths(ReadList(list))).Show();
+                break;
+            // The classic menu, once per selected item.
+            case ["--select", var path]:
+                // A copy that handed its item over opens no window, so nothing else would end it.
+                if (!Selection.Open(CleanPath(path))) Shutdown();
+                break;
+            default:
+                new MainWindow().Show();
+                break;
+        }
     }
 
     /// <summary>
@@ -38,6 +54,15 @@ public partial class App : Application
     {
         path = path.TrimEnd('"').Trim();
         return path.Length == 2 && path[1] == ':' ? path + @"\" : path;
+    }
+
+    /// <summary>Reads the list of selected items written by the Windows 11 menu command, then deletes it.</summary>
+    static string[] ReadList(string file)
+    {
+        string[] paths = File.ReadAllLines(file).Where(line => line.Length > 0).ToArray();
+        // The menu command names its lists like this; never delete any other file passed here.
+        if (Path.GetFileName(file).StartsWith("WinDeepSearch-selection-", StringComparison.OrdinalIgnoreCase)) File.Delete(file);
+        return paths;
     }
 
     public static void SaveSettings()

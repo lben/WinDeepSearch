@@ -36,8 +36,10 @@ static class Registration
         }
         catch (Exception e)
         {
-            windows11Menu = false;
-            Log("Only classic menu entries were registered: " + e.Message);
+            // Declining the prompt during an update leaves the previous version's package registered, and its entry
+            // keeps working (it runs the updated files), so it still covers the menus.
+            windows11Menu = new PackageManager().FindPackagesForUser("", PackageName, Publisher).Any();
+            Log((windows11Menu ? "Kept the Windows 11 menu entry of the previous version: " : "Only classic menu entries were registered: ") + e.Message);
         }
 
         // The packaged entry also appears under "Show more options", so classic entries are added only where it
@@ -71,8 +73,15 @@ static class Registration
         verb.SetValue("", "WinDeepSearch");
         verb.SetValue("Icon", $"\"{Exe}\",0");
         using var command = verb.CreateSubKey("command");
-        // The background of an open folder is passed as %V; everything else as %1.
-        command.SetValue("", $"\"{Exe}\" --path \"{(type == @"Directory\Background" ? "%V" : "%1")}\"");
+        if (type == @"Directory\Background")
+        {
+            // The empty space inside an open folder, passed as %V.
+            command.SetValue("", $"\"{Exe}\" --path \"%V\"");
+            return;
+        }
+        // Explorer starts one copy per selected item ("Player": up to 100 items); the copies share one window.
+        verb.SetValue("MultiSelectModel", "Player");
+        command.SetValue("", $"\"{Exe}\" --select \"%1\"");
     }
 
     static void RemoveClassicEntry(string type) =>

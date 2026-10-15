@@ -31,9 +31,9 @@ public sealed class SearchTests : IDisposable
     }
 
     async Task<List<FileResult>> Search(string text, bool regex = false, bool matchCase = false, bool images = true,
-        Settings? settings = null, string? singleFile = null)
+        Settings? settings = null, IReadOnlyList<string>? targets = null)
     {
-        var engine = new SearchEngine(new SearchQuery(text, regex, matchCase, images), _dir, singleFile, settings ?? new Settings(), new ImageText(_cache), _cache);
+        var engine = new SearchEngine(new SearchQuery(text, regex, matchCase, images), targets ?? [_dir], settings ?? new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
         return [.. engine.Results];
     }
@@ -131,7 +131,7 @@ public sealed class SearchTests : IDisposable
         Write("Quarterly financial report for the fiscal year twenty draft-final.txt", "x");
         Write("normal.txt", "abc");
 
-        var engine = new SearchEngine(new SearchQuery(@"^(\w+\s?)+$", true, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
+        var engine = new SearchEngine(new SearchQuery(@"^(\w+\s?)+$", true, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Contains(engine.Results, r => Path.GetFileName(r.Path) == "normal.txt");
@@ -316,7 +316,7 @@ public sealed class SearchTests : IDisposable
         // OneNote's filter comes with Microsoft Office; without it (or for a damaged file) nothing can read this.
         File.WriteAllBytes(PathOf("notebook.one"), [0xE4, 0x52, 0x5C, 0x7B, 0x8C, 0xD8, 0xA7, 0x4D, 1, 2, 3, 4, 5, 6, 7, 8]);
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(1, engine.Unreadable);
@@ -329,7 +329,7 @@ public sealed class SearchTests : IDisposable
         string cloud = Write("cloud.txt", "needle");
         File.SetAttributes(cloud, FileAttributes.Offline);
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Empty(engine.Results);
@@ -363,7 +363,7 @@ public sealed class SearchTests : IDisposable
         Write(Path.Combine("AppData", "WinDeepSearch", "ocr-cache", "ab", "ab12.json"), "[{\"Text\":\"needle in a picture\"}]");
         Write("notes.txt", "needle here");
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), data);
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), data);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal(["notes.txt"], engine.Results.Select(r => Path.GetFileName(r.Path)));
@@ -386,9 +386,30 @@ public sealed class SearchTests : IDisposable
         string selected = Write("one.txt", "needle\nneedle\n");
         Write("two.txt", "needle\n");
 
-        var results = await Search("needle", singleFile: selected);
+        var results = await Search("needle", targets: [selected]);
         Assert.Equal(2, Single(results, "one.txt").MatchCount);
         Assert.Single(results);
+    }
+
+    [Fact]
+    public async Task SearchingSelectedItemsCoversTheirSubfoldersAndNothingElse()
+    {
+        Write(Path.Combine("Contracts", "Riverbend", "amendment.txt"), "needle");
+        string notes = Write("notes.txt", "needle");
+        Write(Path.Combine("Logs", "app.log"), "needle");
+        Write("other.txt", "needle");
+
+        var results = await Search("needle", targets: [Path.Combine(_dir, "Contracts"), notes]);
+        Assert.Equal(["amendment.txt", "notes.txt"], results.Select(r => Path.GetFileName(r.Path)).Order());
+    }
+
+    [Fact]
+    public async Task AFileInsideASelectedFolderIsSearchedOnce()
+    {
+        string inner = Write(Path.Combine("Contracts", "amendment.txt"), "needle");
+
+        var results = await Search("needle", targets: [Path.Combine(_dir, "Contracts"), inner]);
+        Assert.Equal(inner, Assert.Single(results).Path);
     }
 
     [Fact]
@@ -403,7 +424,7 @@ public sealed class SearchTests : IDisposable
             huge.Write("\nneedle\n"u8);
         }
 
-        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), _dir, null, new Settings(), new ImageText(_cache), _cache);
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
         var run = engine.RunAsync(TestContext.Current.CancellationToken);
         while (!run.IsCompleted)
         {
@@ -434,6 +455,23 @@ public sealed class SearchTests : IDisposable
         Assert.Equal("needle", loaded.Hits[0].Context[0].Text);
         Assert.Equal(new TextRange(0, 6), loaded.Hits[0].Context[0].Matches[0]);
         Assert.Empty(store.LoadResults("id0"));
+    }
+
+    [Fact]
+    public void HistoryKeepsTheSelectedItemsAndReadsSearchesSavedBeforeSelections()
+    {
+        string dir = Path.Combine(_dir, "history");
+        var store = new HistoryStore(dir);
+        store.Save(new HistorySummary("new", DateTimeOffset.UnixEpoch.AddDays(1), 1, new SearchQuery("q", false, false, true), @"C:\Acme", null, 0, 0, 0, 0, false,
+            [@"C:\Acme\Contracts", @"C:\Acme\notes.txt"]), [], keep: 10);
+        // Written by version 0.1.0, which had no selections.
+        File.WriteAllText(Path.Combine(dir, "old.summary.json"),
+            """{"Id":"old","StartedAt":"1970-01-01T00:00:00+00:00","Seconds":1,"Query":{"Text":"q","UseRegex":false,"MatchCase":false,"ReadImages":true},"Root":"C:\\Acme","SingleFile":null,"NameMatches":0,"Matches":0,"FilesWithMatches":0,"Skipped":0,"Stopped":false}""");
+
+        var list = store.List();
+        Assert.Equal([@"C:\Acme\Contracts", @"C:\Acme\notes.txt"], list[0].Items);
+        Assert.Equal("old", list[1].Id);
+        Assert.Null(list[1].Items);
     }
 
     [Fact]

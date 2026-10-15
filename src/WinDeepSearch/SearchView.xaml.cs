@@ -13,8 +13,11 @@ using WinDeepSearch.Core;
 
 namespace WinDeepSearch;
 
-/// <summary>What a search window searches: a folder, or a file and the folder it is in.</summary>
-public sealed record SearchTarget(string Root, string? SelectedFile, bool FromApp)
+/// <summary>
+/// What a search window searches: a folder; a file and the folder it is in; or only the files and folders
+/// selected together (<see cref="Items"/>), which are in <see cref="Root"/>.
+/// </summary>
+public sealed record SearchTarget(string Root, string? SelectedFile, bool FromApp, IReadOnlyList<string>? Items = null)
 {
     public static SearchTarget FromPath(string path)
     {
@@ -22,8 +25,51 @@ public sealed record SearchTarget(string Root, string? SelectedFile, bool FromAp
         return File.Exists(full) ? new(Path.GetDirectoryName(full)!, full, false) : new(full, null, false);
     }
 
+    /// <summary>Items selected in File Explorer, folders first as Explorer lists them. One item works as above.</summary>
+    public static SearchTarget FromPaths(IEnumerable<string> paths)
+    {
+        var items = paths.Select(Path.GetFullPath).Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(File.Exists).ThenBy(NameOf, StringComparer.CurrentCultureIgnoreCase).ToList();
+        return items.Count == 1 ? FromPath(items[0]) : new(CommonFolder(items), null, false, items);
+    }
+
+    public static SearchTarget Of(HistorySummary summary) =>
+        summary.Items != null ? new(summary.Root, null, false, summary.Items)
+        : summary.SingleFile != null ? new(Path.GetDirectoryName(summary.SingleFile)!, summary.SingleFile, false)
+        : new(summary.Root, null, false);
+
     /// <summary>The main app's Search page, where the folder is typed in (C:\ by default).</summary>
     public static readonly SearchTarget App = new(@"C:\", null, true);
+
+    public static string NameOf(string path) => Path.GetFileName(Path.TrimEndingDirectorySeparator(path)) is { Length: > 0 } name ? name : path;
+
+    /// <summary>The deepest folder holding every item; empty when they are on different drives.</summary>
+    static string CommonFolder(List<string> paths)
+    {
+        string common = Path.GetDirectoryName(paths[0]) ?? "";
+        foreach (string path in paths)
+            // A drive root ("D:\") already ends in a backslash.
+            while (common.Length > 0 && !path.StartsWith(Path.EndsInDirectorySeparator(common) ? common : common + @"\", StringComparison.OrdinalIgnoreCase))
+                common = Path.GetDirectoryName(common) ?? "";
+        return common;
+    }
+}
+
+// Classes, not records: UI Automation keeps its entry for an item equal to one shown before, so rebuilt chips
+// equal by value would be missing for screen readers.
+
+/// <summary>A selected file or folder, in the line that says what a search covers.</summary>
+public sealed class SelectedItem(string name, string fullPath, bool isFolder)
+{
+    public string Name { get; } = name;
+    public string FullPath { get; } = fullPath;
+    public bool IsFolder { get; } = isFolder;
+}
+
+/// <summary>"+8 more" or "Show fewer" after the first selected items.</summary>
+public sealed class MoreItems(string label)
+{
+    public string Label { get; } = label;
 }
 
 public partial class SearchView : UserControl
@@ -34,6 +80,8 @@ public partial class SearchView : UserControl
     /// </summary>
     const int MaxStoredHits = 200_000;
     const int LinesShownWhenExpanded = 4;
+    // A longer selection shows its first items until "+N more" is clicked.
+    const int ItemsShownCollapsed = 5;
 
     static readonly Comparer<FileRow> Ranking = Comparer<FileRow>.Create((a, b) =>
         a.Result.MatchCount != b.Result.MatchCount ? b.Result.MatchCount.CompareTo(a.Result.MatchCount) : a.Sequence.CompareTo(b.Sequence));
@@ -52,7 +100,7 @@ public partial class SearchView : UserControl
     CancellationTokenSource? _cts;
     string _root = "";
     string? _single;
-    bool _restart;
+    bool _restart, _showAllItems;
     int _sequence, _storedHits, _filesWithMatches;
     long _matches;
 
@@ -69,16 +117,32 @@ public partial class SearchView : UserControl
 
     bool Running => _cts != null;
 
+    public SearchTarget Target => _target;
+
     public void Show(SearchTarget target)
     {
         _target = target;
-        FolderScope.Visibility = !target.FromApp && target.SelectedFile == null ? Visibility.Visible : Visibility.Collapsed;
+        FolderScope.Visibility = !target.FromApp && target.SelectedFile == null && target.Items == null ? Visibility.Visible : Visibility.Collapsed;
         FolderScopePath.Text = target.Root;
         FileScope.Visibility = target.SelectedFile != null ? Visibility.Visible : Visibility.Collapsed;
         FileScopePath.Text = target.SelectedFile ?? "";
+        SelectionScope.Visibility = target.Items != null ? Visibility.Visible : Visibility.Collapsed;
+        ShowItems();
         AppScope.Visibility = target.FromApp ? Visibility.Visible : Visibility.Collapsed;
         UpdateParentScope();
         QueryBox.Focus();
+    }
+
+    void ShowItems()
+    {
+        if (_target.Items is not { } items) return;
+        SelectionCount.Text = $"{items.Count:N0} selected items";
+        SelectionFolder.Text = _target.Root.Length > 0 ? " and their subfolders, in " + _target.Root : " and their subfolders";
+        bool collapse = items.Count > ItemsShownCollapsed + 1 && !_showAllItems;
+        var chips = new List<object>((collapse ? items.Take(ItemsShownCollapsed) : items)
+            .Select(p => new SelectedItem(SearchTarget.NameOf(p), p, Directory.Exists(p))));
+        if (items.Count > ItemsShownCollapsed + 1) chips.Add(new MoreItems(collapse ? $"+{items.Count - ItemsShownCollapsed:N0} more" : "Show fewer"));
+        SelectedItems.ItemsSource = chips;
     }
 
     /// <summary>Shows a search from history with the results it found back then.</summary>
@@ -105,7 +169,7 @@ public partial class SearchView : UserControl
 
     void Restore(HistorySummary summary)
     {
-        Show(new SearchTarget(summary.SingleFile != null ? Path.GetDirectoryName(summary.SingleFile)! : summary.Root, summary.SingleFile, false));
+        Show(SearchTarget.Of(summary));
         JustThisFile.IsChecked = summary.SingleFile != null;
         QueryBox.Text = summary.Query.Text;
         RegexToggle.IsChecked = summary.Query.UseRegex;
@@ -117,7 +181,8 @@ public partial class SearchView : UserControl
     {
         var query = new SearchQuery(QueryBox.Text, RegexToggle.IsChecked == true, CaseToggle.IsChecked == true, ImagesToggle.IsChecked == true);
         string root = _target.FromApp ? ScopeBox.Text.Trim() : _target.Root;
-        string? error = Matcher.Validate(query) ?? (Directory.Exists(root) ? null : $"The folder \"{root}\" doesn't exist.");
+        var items = _target.Items;
+        string? error = Matcher.Validate(query) ?? (items != null || Directory.Exists(root) ? null : $"The folder \"{root}\" doesn't exist.");
         ErrorText.Text = error ?? "";
         ErrorText.Visibility = error == null ? Visibility.Collapsed : Visibility.Visible;
         if (error != null) return;
@@ -128,7 +193,8 @@ public partial class SearchView : UserControl
         _root = root;
         _single = _target.SelectedFile != null && JustThisFile.IsChecked == true ? _target.SelectedFile : null;
         ListHeading.Text = _single != null ? "Matches in " + Path.GetFileName(_single) : "Results";
-        var engine = _engine = new SearchEngine(query, root, _single, settings, new ImageText(AppPaths.OcrCache), AppPaths.Root);
+        IReadOnlyList<string> targets = items ?? [_single ?? root];
+        var engine = _engine = new SearchEngine(query, targets, settings, new ImageText(AppPaths.OcrCache), AppPaths.Root);
         var cts = _cts = new CancellationTokenSource();
         SetRunning(true);
         var started = DateTimeOffset.Now;
@@ -154,7 +220,7 @@ public partial class SearchView : UserControl
         cts.Dispose();
         SetRunning(false);
         Finish(engine, stopped);
-        SaveHistory(query, started, stopped, settings.HistoryLimit);
+        SaveHistory(query, items, started, stopped, settings.HistoryLimit);
 
         if (_restart)
         {
@@ -338,7 +404,7 @@ public partial class SearchView : UserControl
         }
     }
 
-    void SaveHistory(SearchQuery query, DateTimeOffset started, bool stopped, int keep)
+    void SaveHistory(SearchQuery query, IReadOnlyList<string>? items, DateTimeOffset started, bool stopped, int keep)
     {
         // History keeps the best-ranked files and a few lines each, so saved searches stay small.
         var results = _named.Concat(_content).Take(2000)
@@ -352,7 +418,7 @@ public partial class SearchView : UserControl
             })
             .ToList();
         var summary = new HistorySummary(HistoryStore.NewId(), started, _clock.Elapsed.TotalSeconds, query, _root, _single,
-            _named.Count, (int)Math.Min(_matches, int.MaxValue), _filesWithMatches, _skipped.Count, stopped);
+            _named.Count, (int)Math.Min(_matches, int.MaxValue), _filesWithMatches, _skipped.Count, stopped, items);
         _ = Task.Run(() =>
         {
             try
@@ -421,6 +487,12 @@ public partial class SearchView : UserControl
         _engine = null;
         Clear();
         StatusText.Text = "Scope changed · press Enter to search";
+    }
+
+    void MoreItems_Click(object sender, RoutedEventArgs e)
+    {
+        _showAllItems = !_showAllItems;
+        ShowItems();
     }
 
     void Browse_Click(object sender, RoutedEventArgs e)

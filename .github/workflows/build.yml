@@ -38,6 +38,9 @@ jobs:
           Get-ChildItem -Recurse artifacts/app | Select-Object FullName, Length | Format-Table -AutoSize
 
       - name: Build and sign the menu package
+        env:
+          SIGNING_PFX: ${{ secrets.SIGNING_PFX }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
         run: ./packaging/build-package.ps1 -AppDir artifacts/app
 
       - name: Build the installer

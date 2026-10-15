@@ -11,6 +11,8 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
   every matching line of a file.
 - The right panel shows files that take a while, with a progress bar and a **Skip** button.
 - Started from a file, the search covers its folder; tick **Just this selected file** to search only that file.
+- Select several files and folders, then right-click one of them: the search covers only those, with everything
+  inside the selected folders.
 - Searches plain text in any encoding, Word, Excel, PowerPoint (and the older .doc, .xls, .ppt), OpenDocument, PDF,
   and text in pictures, scanned PDFs and pictures inside Office files (OCR with PaddleOCR). Text read from pictures is
   remembered, so searching the same files again is fast.
@@ -29,6 +31,8 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
 - Archives (.zip and similar) are not opened. WinDeepSearch never searches its own data folder.
 - If File Explorer already shows the folder of a clicked result, Windows selects the file in that window instead of
   opening a new one.
+- Under **Show more options** without the Windows 11 entry (the certificate prompt was declined), Windows offers the
+  entry for up to 100 selected items.
 
 ## Install
 
@@ -36,9 +40,12 @@ Download `WinDeepSearch-Setup.exe` from the [latest release](https://github.com/
 and run it. It installs for your account only, in `%LOCALAPPDATA%\Programs\WinDeepSearch`. The installer is not
 code-signed, so Windows SmartScreen may warn about it: choose **More info › Run anyway**.
 
-Windows asks once for administrator approval: the Windows 11 menu only accepts entries from signed packages, so the
-installer adds the package's certificate to the computer's *Trusted People*. If you decline, the entry still appears
-under **Show more options**. Uninstall from **Settings › Apps**.
+Windows asks once for administrator approval (on a standard account, for an administrator's password): the Windows 11
+menu only accepts entries from signed packages, so the installer adds the package's certificate to the computer's
+*Trusted People*. From 0.2.0 on, every release is signed with the same certificate, so updates don't ask again
+(updating from 0.1.0 asks once more). If you decline, the
+entry still appears under **Show more options**; to add it to the Windows 11 menu later, run
+`%LOCALAPPDATA%\Programs\WinDeepSearch\WinDeepSearch.exe --register` from **Win+R**. Uninstall from **Settings › Apps**.
 
 ## Build
 
