@@ -6,9 +6,6 @@ namespace WinDeepSearch;
 
 public partial class App : Application
 {
-    /// <summary>Settings shared by every window in this process.</summary>
-    public static Settings Settings { get; private set; } = new();
-
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
@@ -22,7 +19,6 @@ public partial class App : Application
                 return;
         }
 
-        Settings = Settings.Load(AppPaths.SettingsFile);
         ImageDecoder.Fallback = WicDecoder.Decode;
 
         switch (e.Args)
@@ -63,17 +59,5 @@ public partial class App : Application
         // The menu command names its lists like this; never delete any other file passed here.
         if (Path.GetFileName(file).StartsWith("WinDeepSearch-selection-", StringComparison.OrdinalIgnoreCase)) File.Delete(file);
         return paths;
-    }
-
-    public static void SaveSettings()
-    {
-        try
-        {
-            Settings.Save(AppPaths.SettingsFile);
-        }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
-        {
-            // Another window is writing the same file; this change is kept for this session.
-        }
     }
 }

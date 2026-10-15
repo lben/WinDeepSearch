@@ -15,19 +15,39 @@ public partial class SettingsView : UserControl
 
     public void Refresh()
     {
+        var settings = Settings.Load(AppPaths.SettingsFile);
         _loading = true;
-        ShowIgnored();
-        ContextLines.Text = App.Settings.ContextLines.ToString();
-        int limit = Array.IndexOf(Limits, App.Settings.HistoryLimit);
+        ShowIgnored(settings);
+        ContextLines.Text = settings.ContextLines.ToString();
+        int limit = Array.IndexOf(Limits, settings.HistoryLimit);
         HistoryLimit.SelectedIndex = limit >= 0 ? limit : 1;
         _loading = false;
         _ = ShowOcrUsageAsync();
     }
 
-    void ShowIgnored()
+    /// <summary>
+    /// Every window is a process of its own and can change settings, so each change starts from what is saved
+    /// now, not from what this window read earlier.
+    /// </summary>
+    static Settings Change(Action<Settings> change)
     {
-        IgnoredList.ItemsSource = App.Settings.IgnoredFolders.ToList();
-        NothingIgnored.Visibility = App.Settings.IgnoredFolders.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        var settings = Settings.Load(AppPaths.SettingsFile);
+        change(settings);
+        try
+        {
+            settings.Save(AppPaths.SettingsFile);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Another window is writing the same file at this moment; this change is lost.
+        }
+        return settings;
+    }
+
+    void ShowIgnored(Settings settings)
+    {
+        IgnoredList.ItemsSource = settings.IgnoredFolders.ToList();
+        NothingIgnored.Visibility = settings.IgnoredFolders.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     async Task ShowOcrUsageAsync()
@@ -53,14 +73,16 @@ public partial class SettingsView : UserControl
     {
         string value = NewIgnored.Text.Trim();
         if (value.Length == 0) return;
-        bool duplicate = App.Settings.IgnoredFolders.Any(f => f.Equals(value, StringComparison.OrdinalIgnoreCase));
+        bool duplicate = false;
+        var settings = Change(s =>
+        {
+            duplicate = s.IgnoredFolders.Any(f => f.Equals(value, StringComparison.OrdinalIgnoreCase));
+            if (!duplicate) s.IgnoredFolders.Add(value);
+        });
         IgnoredError.Text = duplicate ? $"\"{value}\" is already in the list." : "";
         IgnoredError.Visibility = duplicate ? Visibility.Visible : Visibility.Collapsed;
-        if (duplicate) return;
-        App.Settings.IgnoredFolders.Add(value);
-        App.SaveSettings();
-        NewIgnored.Clear();
-        ShowIgnored();
+        if (!duplicate) NewIgnored.Clear();
+        ShowIgnored(settings);
     }
 
     void AddIgnored_Click(object sender, RoutedEventArgs e) => AddIgnored();
@@ -74,29 +96,22 @@ public partial class SettingsView : UserControl
 
     void RemoveIgnored_Click(object sender, RoutedEventArgs e)
     {
-        App.Settings.IgnoredFolders.Remove((string)((FrameworkElement)sender).Tag);
-        App.SaveSettings();
-        ShowIgnored();
+        string folder = (string)((FrameworkElement)sender).Tag;
+        ShowIgnored(Change(s => s.IgnoredFolders.Remove(folder)));
     }
 
     void ResetIgnored_Click(object sender, RoutedEventArgs e)
     {
-        App.Settings.IgnoredFolders = [.. Settings.DefaultIgnoredFolders];
-        App.SaveSettings();
         IgnoredError.Visibility = Visibility.Collapsed;
-        ShowIgnored();
+        ShowIgnored(Change(s => s.IgnoredFolders = [.. Settings.DefaultIgnoredFolders]));
     }
 
-    void FewerLines_Click(object sender, RoutedEventArgs e) => SetContextLines(App.Settings.ContextLines - 1);
+    void FewerLines_Click(object sender, RoutedEventArgs e) => ChangeContextLines(-1);
 
-    void MoreLines_Click(object sender, RoutedEventArgs e) => SetContextLines(App.Settings.ContextLines + 1);
+    void MoreLines_Click(object sender, RoutedEventArgs e) => ChangeContextLines(+1);
 
-    void SetContextLines(int lines)
-    {
-        App.Settings.ContextLines = Math.Clamp(lines, 0, 20);
-        App.SaveSettings();
-        ContextLines.Text = App.Settings.ContextLines.ToString();
-    }
+    void ChangeContextLines(int by) =>
+        ContextLines.Text = Change(s => s.ContextLines = Math.Clamp(s.ContextLines + by, 0, 20)).ContextLines.ToString();
 
     async void ClearOcr_Click(object sender, RoutedEventArgs e)
     {
@@ -117,8 +132,8 @@ public partial class SettingsView : UserControl
     void HistoryLimit_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_loading || HistoryLimit.SelectedIndex < 0) return;
-        App.Settings.HistoryLimit = Limits[HistoryLimit.SelectedIndex];
-        App.SaveSettings();
+        int limit = Limits[HistoryLimit.SelectedIndex];
+        Change(s => s.HistoryLimit = limit);
     }
 
     void ClearHistory_Click(object sender, RoutedEventArgs e)
