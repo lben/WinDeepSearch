@@ -131,7 +131,13 @@ public partial class MainWindow : Window
 
     void Tabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (Tabs.SelectedItem is not SearchTab tab) return;
+        if (Tabs.SelectedItem is not SearchTab tab)
+        {
+            // Ctrl+click unselects a list item; a tab stays shown until another one is picked or it is closed.
+            if (e.RemovedItems is [SearchTab shown] && _tabs.Contains(shown))
+                Dispatcher.BeginInvoke(() => Tabs.SelectedItem = shown);
+            return;
+        }
         TabContent.Content = tab.View;
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () => tab.View.QueryBox.Focus());
     }
