@@ -23,7 +23,7 @@ internal static class FilterText
     static string Extract(string path, CancellationToken ct)
     {
         int hr = LoadIFilter(path, 0, out nint unknown);
-        if (hr < 0 || unknown == 0) throw new IOException($"No Windows filter can read this file (0x{hr:X8}).");
+        if (hr < 0 || unknown == 0) throw new IOException("No reader for this file type is installed (Microsoft Office adds it)");
 
         var filter = (IFilter)Marshal.GetObjectForIUnknown(unknown);
         Marshal.Release(unknown);
@@ -33,7 +33,7 @@ internal static class FilterText
         {
             const uint flags = 1 /* canon paragraphs */ | 2 /* hard line breaks */ | 4 /* canon hyphens */ | 8 /* canon spaces */ | 16 /* index attributes */;
             hr = filter.Init(flags, 0, 0, out _);
-            if (hr < 0) throw new IOException($"The Windows filter couldn't read this file (0x{hr:X8}).");
+            if (hr < 0) throw new IOException("Damaged, or protected with a password");
 
             var text = new StringBuilder();
             while (text.Length < MaxChars)

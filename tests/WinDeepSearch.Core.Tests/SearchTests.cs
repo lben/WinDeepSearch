@@ -319,7 +319,25 @@ public sealed class SearchTests : IDisposable
         var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
         await engine.RunAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal(1, engine.Unreadable);
+        Assert.Equal("No reader for this file type is installed (Microsoft Office adds it)", Assert.Single(engine.Unreadable).Reason);
+    }
+
+    [Fact]
+    public async Task UnreadableFilesSayWhy()
+    {
+        File.WriteAllBytes(PathOf("broken.docx"), "not a zip archive"u8.ToArray());
+        File.WriteAllBytes(PathOf("broken.pdf"), "%PDF-1.7 nothing else"u8.ToArray());
+        string locked = Write("locked.txt", "needle");
+        // Another program holding a file open without sharing it; only Windows enforces that.
+        using var holder = OperatingSystem.IsWindows() ? new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None) : null;
+
+        var engine = new SearchEngine(new SearchQuery("needle", false, false, false), [_dir], new Settings(), new ImageText(_cache), _cache);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        var reasons = engine.Unreadable.ToDictionary(u => Path.GetFileName(u.Path), u => u.Reason);
+        Assert.Equal("Damaged, or protected with a password", reasons["broken.docx"]);
+        Assert.Equal("Damaged: not a valid PDF", reasons["broken.pdf"]);
+        if (OperatingSystem.IsWindows()) Assert.Equal("In use by another program", reasons["locked.txt"]);
     }
 
     [Fact]

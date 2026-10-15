@@ -121,6 +121,57 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void TabsRunSearchesOverTheSameFolderSideBySide()
+    {
+        var window = Launch("--path", _dir);
+        // A window from the right-click menu has History and Settings too.
+        Assert.NotNull(window.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")));
+
+        Search(window, InvoiceRegex, regex: true, waitForFinish: false);
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NewTabButton")).AsButton().Invoke();
+        Retry.WhileFalse(() => TabNames(window).Count == 2, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        // The new tab searches the same folder and starts empty.
+        Assert.Equal("", window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox().Text);
+        Assert.Contains(_dir, Texts(window));
+        Search(window, "Please pay", regex: false);
+        var names = ResultNames(window);
+        Assert.Contains("letter.docx · 1 match", names);
+        Assert.DoesNotContain(names, n => n.StartsWith("billing.log"));
+        // The first tab finishes on its own while the second one is shown.
+        Retry.WhileFalse(() => TabNames(window)[0] == InvoiceRegex + " · 11 matches", TimeSpan.FromSeconds(60), throwOnTimeout: true, ignoreException: true);
+        Assert.Equal("Please pay · 1 match", TabNames(window)[1]);
+        Shot(window, "18-tabs");
+
+        Tabs(window).Items[0].Select();
+        Retry.WhileFalse(() => ResultNames(window).Contains("billing.log · 7 matches"), TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+
+        // Ctrl+T opens a tab, Ctrl+W closes the one shown, and × closes any. A Ctrl+click on the shown tab first
+        // must not leave the window without one.
+        window.Focus();
+        using (Keyboard.Pressing(VirtualKeyShort.CONTROL)) Tabs(window).Items[0].Click();
+        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_T);
+        Retry.WhileFalse(() => TabNames(window).Count == 3, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_W);
+        Retry.WhileFalse(() => TabNames(window).Count == 2, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        Tabs(window).FindFirstDescendant(cf => cf.ByName("Close tab Please pay")).AsButton().Invoke();
+        Retry.WhileFalse(() => TabNames(window).Count == 1, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        Assert.StartsWith(InvoiceRegex, TabNames(window)[0]);
+    }
+
+    [Fact]
+    public void FilesThatCouldNotBeReadAreListedWithTheReason()
+    {
+        File.WriteAllText(Path.Combine(_dir, "broken.docx"), "not a zip archive");
+        var window = Launch("--path", _dir);
+        Search(window, "Invoice", regex: false);
+
+        var unreadable = window.FindFirstDescendant(cf => cf.ByAutomationId("UnreadableList")).AsListBox();
+        Assert.Equal(["broken.docx · Damaged, or protected with a password"], unreadable.Items.Select(i => i.Name));
+        Assert.Contains(Texts(window), t => t.Contains("1 couldn't be read"));
+        Shot(window, "19-unreadable");
+    }
+
+    [Fact]
     public void SearchingSelectedItemsCoversOnlyThemAndTheirSubfolders()
     {
         Directory.CreateDirectory(Path.Combine(_dir, "Archive", "2019"));
@@ -166,10 +217,10 @@ public sealed class UiTests : IDisposable
         var history = Retry.WhileNull(() => app.FindFirstDescendant(cf => cf.ByAutomationId("HistoryList"))?.AsListBox(), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
         history.Items.First(i => i.Name.StartsWith($"Invoice · 7 selected items in {_dir}: Archive, billing.log, extra1.txt")).Select();
         app.FindFirstDescendant(cf => cf.ByAutomationId("SearchAgain")).AsButton().Invoke();
-        var again = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — 7 selected items"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
-        WaitForFinish(again);
-        Assert.Contains("old.txt · 1 match", ResultNames(again));
-        Assert.DoesNotContain(ResultNames(again), n => n.StartsWith("contract.pdf"));
+        Retry.WhileFalse(() => TabNames(app).Count == 2, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        WaitForFinish(app);
+        Assert.Contains("old.txt · 1 match", ResultNames(app));
+        Assert.DoesNotContain(ResultNames(app), n => n.StartsWith("contract.pdf"));
     }
 
     [Fact]
@@ -250,7 +301,8 @@ public sealed class UiTests : IDisposable
         skip.AsButton().Invoke();
 
         WaitForFinish(window);
-        Assert.Contains(Texts(window.FindFirstDescendant(cf => cf.ByAutomationId("SkippedList"))), t => t.StartsWith("huge.log · stopped at"));
+        Assert.Contains(window.FindFirstDescendant(cf => cf.ByAutomationId("SkippedList")).AsListBox().Items,
+            i => i.Name.StartsWith("huge.log · 2.5 GB · skipped by you at"));
         Assert.Contains("small.txt · 1 match", ResultNames(window));
         Shot(window, "07-skipped");
 
@@ -294,23 +346,25 @@ public sealed class UiTests : IDisposable
         Retry.WhileFalse(() => history.Items.Length > 0, TimeSpan.FromSeconds(5), throwOnTimeout: true);
         history.Items.First(i => i.Name.StartsWith("Invoice #2041")).Select();
 
-        // Open results shows the saved results in a search window.
+        // Open results shows the saved results in a new tab of this window.
         window.FindFirstDescendant(cf => cf.ByAutomationId("OpenResults")).AsButton().Invoke();
-        var savedWindow = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
-        Assert.Contains(Texts(savedWindow), t => t.StartsWith("Saved results from"));
-        Assert.Contains("letter.docx · 1 match", ResultNames(savedWindow));
-        savedWindow.Close();
+        Retry.WhileFalse(() => TabNames(window).Count == 2, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        Assert.Equal("Invoice #2041 · Saved results", TabNames(window)[1]);
+        Assert.Contains(Texts(window), t => t.StartsWith("Saved results from"));
+        Assert.Contains("letter.docx · 1 match", ResultNames(window));
 
-        // Search again runs it anew, and it is saved as a new entry.
+        // Search again runs it anew in another tab, and it is saved as a new entry.
         int beforeAgain = SavedSearches(historyDir);
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")).Click();
         window.FindFirstDescendant(cf => cf.ByAutomationId("SearchAgain")).AsButton().Invoke();
-        var again = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — Acme"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
-        WaitForFinish(again);
-        Assert.Contains("letter.docx · 1 match", ResultNames(again));
+        Retry.WhileFalse(() => TabNames(window).Count == 3, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+        WaitForFinish(window);
+        Assert.Contains("letter.docx · 1 match", ResultNames(window));
         Retry.WhileFalse(() => SavedSearches(historyDir) == beforeAgain + 1, TimeSpan.FromSeconds(30), throwOnTimeout: true);
-        again.Close();
 
         // Remove deletes the selected entry, and the list shows what is left.
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")).Click();
+        history = Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("HistoryList"))?.AsListBox(), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
         int beforeRemove = SavedSearches(historyDir);
         window.FindFirstDescendant(cf => cf.ByAutomationId("RemoveHistory")).AsButton().Invoke();
         Retry.WhileFalse(() => SavedSearches(historyDir) == beforeRemove - 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
@@ -600,6 +654,10 @@ public sealed class UiTests : IDisposable
         }
         return found.Count == 0 ? "none" : string.Join(" | ", found);
     }
+
+    static ListBox Tabs(Window window) => window.FindFirstDescendant(cf => cf.ByAutomationId("SearchTabs")).AsListBox();
+
+    static List<string> TabNames(Window window) => Tabs(window).Items.Select(i => i.Name).ToList();
 
     /// <summary>The names of the selected items listed under the search scope.</summary>
     static List<string> SelectedNames(AutomationElement element) =>

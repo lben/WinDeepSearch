@@ -9,15 +9,18 @@ Search inside every file under a folder, straight from the Windows 11 right-clic
 - Results: file-name matches first, then files by number of matches. Hover a result to see the lines around the match
   (and the picture, for text read from an image); click it to open File Explorer with the file selected. The arrow lists
   every matching line of a file.
-- The right panel shows files that take a while, with a progress bar and a **Skip** button.
+- The right panel shows files that take a while, with a progress bar and a **Skip** button. Below them, the files that
+  were skipped and the ones that couldn't be read, each with the reason; click one to show it in File Explorer.
+- Run more searches over the same folder, file or selection in tabs (**+** or Ctrl+T, Ctrl+W closes one); each keeps
+  searching while you look at another.
 - Started from a file, the search covers its folder; tick **Just this selected file** to search only that file.
 - Select several files and folders, then right-click one of them: the search covers only those, with everything
   inside the selected folders.
 - Searches plain text in any encoding, Word, Excel, PowerPoint (and the older .doc, .xls, .ppt), OpenDocument, PDF,
   and text in pictures, scanned PDFs and pictures inside Office files (OCR with PaddleOCR). Text read from pictures is
   remembered, so searching the same files again is fast.
-- Open **WinDeepSearch** from the Start menu to search any folder (C:\ by default), go back to past searches and their
-  results in **History**, and change ignored folders, preview lines and history size in **Settings**.
+- Every window has **Search**, **History** (past searches and their results, opened in a new tab) and **Settings**
+  (ignored folders, preview lines, history size). Opened from the Start menu, it searches any folder (C:\ by default).
 
 ## Limits
 

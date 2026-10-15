@@ -149,6 +149,16 @@ public sealed class NoteRow(FileRow file) : Row
     public override string ToString() => Label;
 }
 
+/// <summary>A file the search left out, in the Skipped or Couldn't be read list.</summary>
+public sealed class ProblemRow(string path, string reason)
+{
+    public string Path { get; } = path;
+    public string Name { get; } = System.IO.Path.GetFileName(path);
+    public string Reason { get; } = reason;
+
+    public override string ToString() => $"{Name} · {Reason}";
+}
+
 /// <summary>A file in the "being searched" panel.</summary>
 public sealed class ActiveRow(ActiveFile file, string root) : Row
 {

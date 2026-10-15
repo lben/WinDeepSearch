@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:WinDeepSearch"
         Title="WinDeepSearch" Width="1280" Height="820" MinWidth="900" MinHeight="520"
-        WindowStartupLocation="CenterScreen" Icon="Assets/WinDeepSearch.ico">
+        WindowStartupLocation="CenterScreen" Icon="Assets/WinDeepSearch.ico" PreviewKeyDown="OnPreviewKeyDown">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="200" />
@@ -36,7 +36,75 @@
             </ListBoxItem>
         </ListBox>
 
-        <local:SearchView x:Name="SearchPage" Grid.Column="1" />
+        <!-- Search: one tab per search. A tab keeps searching while another one is shown. -->
+        <DockPanel x:Name="SearchPage" Grid.Column="1">
+            <ScrollViewer DockPanel.Dock="Top" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                          Background="{DynamicResource SubtleFillColorSecondaryBrush}" Padding="12,6,20,0">
+                <StackPanel Orientation="Horizontal">
+                    <ListBox x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged" BorderThickness="0" Background="Transparent"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             AutomationProperties.AutomationId="SearchTabs" AutomationProperties.Name="Searches in this window">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemContainerStyle>
+                            <Style TargetType="ListBoxItem">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListBoxItem">
+                                            <Border x:Name="Tab" Height="36" Margin="0,0,2,0" Padding="12,0,4,0" CornerRadius="8,8,0,0" Background="Transparent">
+                                                <ContentPresenter VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Tab" Property="Background" Value="{DynamicResource SubtleFillColorTertiaryBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="Tab" Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListBox.ItemContainerStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate DataType="{x:Type local:SearchTab}">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="8" Height="8" Margin="0,0,8,0" Fill="{DynamicResource AccentFillColorDefaultBrush}"
+                                             Visibility="{Binding Running, Converter={StaticResource BoolToVisibility}}" />
+                                    <TextBlock x:Name="Label" Text="{Binding Label}" MaxWidth="220" FontSize="13" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <TextBlock Text="{Binding Outcome}" Margin="8,0,0,0" FontSize="12" VerticalAlignment="Center"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <Button Width="26" Height="26" Margin="6,0,0,0" Padding="0" Background="Transparent" BorderThickness="0" Click="CloseTab_Click"
+                                            Visibility="{Binding CanClose, Converter={StaticResource BoolToVisibility}}" ToolTip="Close tab (Ctrl+W)"
+                                            AutomationProperties.Name="{Binding CloseName}">
+                                        <Path Data="M1,1 L9,9 M9,1 L1,9" Width="10" Height="10" StrokeThickness="1.3" Stroke="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </Button>
+                                </StackPanel>
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding HasQuery}" Value="True">
+                                        <Setter TargetName="Label" Property="FontFamily" Value="{StaticResource MonoFont}" />
+                                        <Setter TargetName="Label" Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Button Width="36" Height="32" Margin="4,0,0,2" Padding="0" VerticalAlignment="Center" Background="Transparent" BorderThickness="0"
+                            Click="NewTab_Click" ToolTip="New search tab over the same folder, file or selection (Ctrl+T)"
+                            AutomationProperties.AutomationId="NewTabButton" AutomationProperties.Name="New search tab">
+                        <Path Data="M8,3 L8,13 M3,8 L13,8" Width="16" Height="16" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                              Stroke="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+            <!-- Only the shown tab is in the window's tree; the others keep running outside it. -->
+            <ContentControl x:Name="TabContent" Focusable="False" />
+        </DockPanel>
         <local:HistoryView x:Name="HistoryPage" Grid.Column="1" Visibility="Collapsed" />
         <local:SettingsView x:Name="SettingsPage" Grid.Column="1" Visibility="Collapsed" />
     </Grid>

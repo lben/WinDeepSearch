@@ -101,12 +101,12 @@ public partial class HistoryView : UserControl
         if (List.SelectedItem is not HistoryItem item) return;
         // Loaded here, not taken from the list on the right, which may still belong to the previous selection.
         var results = await Task.Run(() => _store.LoadResults(item.Summary.Id));
-        SearchWindow.OpenSaved(item.Summary, results);
+        (Window.GetWindow(this) as MainWindow)?.OpenSaved(item.Summary, results);
     }
 
     void Again_Click(object sender, RoutedEventArgs e)
     {
-        if (List.SelectedItem is HistoryItem item) SearchWindow.RunAgain(item.Summary);
+        if (List.SelectedItem is HistoryItem item) (Window.GetWindow(this) as MainWindow)?.RunAgain(item.Summary);
     }
 
     void Remove_Click(object sender, RoutedEventArgs e)

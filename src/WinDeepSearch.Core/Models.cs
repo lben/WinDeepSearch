@@ -50,4 +50,5 @@ public sealed class TextSegment
     public PixelRect[]? LineBoxes { get; init; }
 }
 
-public sealed record SkippedFile(string Path, double Progress, string Reason);
+/// <param name="Length">Set for a file skipped from the window, for the size shown next to it.</param>
+public sealed record SkippedFile(string Path, double Progress, string Reason, long Length = 0);
