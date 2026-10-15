@@ -148,7 +148,9 @@ public sealed class SearchEngine
     /// </summary>
     static IEnumerable<string> Outermost(IReadOnlyList<string> targets) =>
         targets.Distinct(StringComparer.OrdinalIgnoreCase).Where(target => !targets.Any(other =>
-            target.StartsWith(Path.TrimEndingDirectorySeparator(other) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)));
+            // A drive root ("D:\") already ends in a separator.
+            target.StartsWith(Path.EndsInDirectorySeparator(other) ? other : other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            && !target.Equals(other, StringComparison.OrdinalIgnoreCase)));
 
     async Task Add(FileInfo file, CancellationToken ct)
     {

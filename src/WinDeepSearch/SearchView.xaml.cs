@@ -48,7 +48,8 @@ public sealed record SearchTarget(string Root, string? SelectedFile, bool FromAp
     {
         string common = Path.GetDirectoryName(paths[0]) ?? "";
         foreach (string path in paths)
-            while (common.Length > 0 && !path.StartsWith(Path.TrimEndingDirectorySeparator(common) + @"\", StringComparison.OrdinalIgnoreCase))
+            // A drive root ("D:\") already ends in a backslash.
+            while (common.Length > 0 && !path.StartsWith(Path.EndsInDirectorySeparator(common) ? common : common + @"\", StringComparison.OrdinalIgnoreCase))
                 common = Path.GetDirectoryName(common) ?? "";
         return common;
     }
