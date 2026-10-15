@@ -173,6 +173,25 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void ItemsSelectedAtADriveRootAreShownInThatDrive()
+    {
+        string root = Path.GetPathRoot(_dir)!;
+        string[] items = [Path.Combine(root, $"wds-a-{Guid.NewGuid():N}"), Path.Combine(root, $"wds-b-{Guid.NewGuid():N}")];
+        foreach (string item in items) Directory.CreateDirectory(item);
+        try
+        {
+            string list = Path.Combine(Path.GetTempPath(), $"WinDeepSearch-selection-{Guid.NewGuid():N}.txt");
+            File.WriteAllLines(list, items);
+            var window = Launch("--items", list);
+            Assert.Contains($"Search in 2 selected items and their subfolders, in {root}", Texts(window));
+        }
+        finally
+        {
+            foreach (string item in items) Directory.Delete(item);
+        }
+    }
+
+    [Fact]
     public void ClassicMenuCopiesForOneSelectionShareOneWindow()
     {
         // The classic menu starts the app once per selected item, all at about the same time.
