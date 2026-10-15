@@ -155,6 +155,21 @@ public sealed class UiTests : IDisposable
         Assert.Contains("old.txt · 1 match", names);
         Assert.DoesNotContain(names, n => n.StartsWith("contract.pdf") || n.StartsWith("scan.png"));
         Shot(window, "06c-selected-items-results");
+        window.Close();
+
+        // History keeps the selection, and Search again covers the same items.
+        string historyDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinDeepSearch", "history");
+        Retry.WhileFalse(() => Directory.GetFiles(historyDir, "*.summary.json").Any(f => File.ReadAllText(f).Contains("extra1.txt")),
+            TimeSpan.FromSeconds(30), throwOnTimeout: true, ignoreException: true);
+        var app = Launch();
+        app.FindFirstDescendant(cf => cf.ByAutomationId("NavHistory")).Click();
+        var history = Retry.WhileNull(() => app.FindFirstDescendant(cf => cf.ByAutomationId("HistoryList"))?.AsListBox(), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
+        history.Items.First(i => i.Name.StartsWith($"Invoice · 7 selected items in {_dir}: Archive, billing.log, extra1.txt")).Select();
+        app.FindFirstDescendant(cf => cf.ByAutomationId("SearchAgain")).AsButton().Invoke();
+        var again = Retry.WhileNull(() => SearchWindowTitled("WinDeepSearch — 7 selected items"), TimeSpan.FromSeconds(30), throwOnTimeout: true).Result;
+        WaitForFinish(again);
+        Assert.Contains("old.txt · 1 match", ResultNames(again));
+        Assert.DoesNotContain(ResultNames(again), n => n.StartsWith("contract.pdf"));
     }
 
     [Fact]
