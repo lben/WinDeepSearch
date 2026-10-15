@@ -45,7 +45,13 @@ internal sealed unsafe class PdfFile : IDisposable
                     _initialized = true;
                 }
                 _document = FPDF_LoadCustomDocument(_access, null);
-                if (_document == 0) throw new IOException($"PDFium couldn't open the file (error {FPDF_GetLastError()}).");
+                if (_document == 0) throw new IOException((int)FPDF_GetLastError().Value switch
+                {
+                    3 => "Damaged: not a valid PDF",
+                    4 => "Protected with a password",
+                    5 => "Uses an encryption the PDF reader doesn't support",
+                    var code => $"The PDF reader couldn't open it (error {code})",
+                });
                 PageCount = FPDF_GetPageCount(_document);
             }
         }

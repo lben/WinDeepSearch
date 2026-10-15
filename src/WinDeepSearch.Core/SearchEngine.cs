@@ -54,7 +54,7 @@ public sealed class SearchEngine
     readonly Channel<(string Path, long Length, FileAttributes Attributes)> _files =
         Channel.CreateBounded<(string, long, FileAttributes)>(10_000);
 
-    long _found, _done, _unreadable;
+    long _found, _done;
     volatile bool _enumerating = true;
 
     /// <param name="targets">Full paths of folders, searched with all their subfolders, and of single files.</param>
@@ -73,10 +73,12 @@ public sealed class SearchEngine
 
     public ConcurrentQueue<FileResult> Results { get; } = new();
     public ConcurrentQueue<SkippedFile> Skipped { get; } = new();
+
+    /// <summary>Files that couldn't be read, each with the reason in words for the window.</summary>
+    public ConcurrentQueue<SkippedFile> Unreadable { get; } = new();
     public ConcurrentDictionary<string, ActiveFile> Active { get; } = new();
     public long FilesFound => Interlocked.Read(ref _found);
     public long FilesDone => Interlocked.Read(ref _done);
-    public long Unreadable => Interlocked.Read(ref _unreadable);
     public bool Enumerating => _enumerating;
 
     public async Task RunAsync(CancellationToken ct)
@@ -197,7 +199,7 @@ public sealed class SearchEngine
         }
         catch (OperationCanceledException) when (!searchToken.IsCancellationRequested)
         {
-            Skipped.Enqueue(new SkippedFile(path, active.Progress, "Skipped"));
+            Skipped.Enqueue(new SkippedFile(path, active.Progress, "Skipped", length));
         }
         catch (OperationCanceledException)
         {
@@ -207,10 +209,10 @@ public sealed class SearchEngine
         {
             Skipped.Enqueue(new SkippedFile(path, active.Progress, "The pattern took too long on this file"));
         }
-        catch (Exception)
+        catch (Exception e)
         {
             // Locked, damaged or unsupported content must not stop the search.
-            Interlocked.Increment(ref _unreadable);
+            Unreadable.Enqueue(new SkippedFile(path, active.Progress, ReasonFor(e)));
         }
         finally
         {
@@ -220,4 +222,18 @@ public sealed class SearchEngine
 
         if (result != null && (result.NameMatches.Count > 0 || result.MatchCount > 0)) Results.Enqueue(result);
     }
+
+    const int SharingViolation = unchecked((int)0x80070020), LockViolation = unchecked((int)0x80070021);
+
+    /// <summary>Why a file couldn't be read, in words; the readers' own messages already say what went wrong.</summary>
+    static string ReasonFor(Exception e) => e switch
+    {
+        UnauthorizedAccessException => "Access denied",
+        FileNotFoundException or DirectoryNotFoundException => "Moved or deleted during the search",
+        IOException { HResult: SharingViolation or LockViolation } => "In use by another program",
+        // Office and OpenDocument files are zip archives; a password-protected one is not.
+        InvalidDataException => "Damaged, or protected with a password",
+        System.Xml.XmlException => "Damaged: its contents aren't valid",
+        _ => e.Message,
+    };
 }

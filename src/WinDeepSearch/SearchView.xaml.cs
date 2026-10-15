@@ -91,7 +91,7 @@ public partial class SearchView : UserControl
     readonly SectionRow _namedHeader = new(), _contentHeader = new();
     readonly HashSet<FileRow> _expanded = [];
     readonly ObservableCollection<ActiveRow> _active = [];
-    readonly ObservableCollection<string> _skipped = [];
+    readonly ObservableCollection<ProblemRow> _skipped = [], _unreadable = [];
     readonly DispatcherTimer _timer;
     readonly Stopwatch _clock = new();
 
@@ -110,14 +110,32 @@ public partial class SearchView : UserControl
         ResultsList.ItemsSource = _rows;
         ActiveList.ItemsSource = _active;
         SkippedList.ItemsSource = _skipped;
+        UnreadableList.ItemsSource = _unreadable;
         PanelThreads.Text = $"{Environment.ProcessorCount} threads";
         _timer = new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => Pump(), Dispatcher) { IsEnabled = false };
-        Unloaded += (_, _) => _cts?.Cancel();
     }
 
     bool Running => _cts != null;
 
-    public SearchTarget Target => _target;
+    /// <summary>Raised when what the tab shows about this search changes: its text, or how it went.</summary>
+    public event EventHandler? StatusChanged;
+
+    public string QueryText => QueryBox.Text;
+
+    public bool IsRunning => Running;
+
+    /// <summary>"Searching…", "Stopped", or what was found; empty before the first search.</summary>
+    public string Outcome { get; private set; } = "";
+
+    /// <summary>Stops the search for good, as when its tab or window closes.</summary>
+    public void Stop()
+    {
+        _restart = false;
+        _cts?.Cancel();
+    }
+
+    /// <summary>On the main app's Search page this includes the folder typed in, so a new tab starts from it.</summary>
+    public SearchTarget Target => _target.FromApp ? _target with { Root = ScopeBox.Text.Trim() } : _target;
 
     public void Show(SearchTarget target)
     {
@@ -129,6 +147,7 @@ public partial class SearchView : UserControl
         SelectionScope.Visibility = target.Items != null ? Visibility.Visible : Visibility.Collapsed;
         ShowItems();
         AppScope.Visibility = target.FromApp ? Visibility.Visible : Visibility.Collapsed;
+        if (target.FromApp) ScopeBox.Text = target.Root;
         UpdateParentScope();
         QueryBox.Focus();
     }
@@ -158,6 +177,8 @@ public partial class SearchView : UserControl
         StatusCounts.Text = Counts();
         StatusSkipped.Text = summary.Skipped > 0 ? $"{summary.Skipped} skipped · results may be incomplete" : "";
         UpdateEmptyText(false);
+        Outcome = "Saved results";
+        StatusChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Runs a search from history again with the same text, options and folder.</summary>
@@ -220,6 +241,11 @@ public partial class SearchView : UserControl
         cts.Dispose();
         SetRunning(false);
         Finish(engine, stopped);
+        Outcome = stopped ? "Stopped"
+            : _matches > 0 ? $"{_matches:N0} {(_matches == 1 ? "match" : "matches")}"
+            : _named.Count > 0 ? $"{_named.Count:N0} {(_named.Count == 1 ? "name match" : "name matches")}"
+            : "No matches";
+        StatusChanged?.Invoke(this, EventArgs.Empty);
         SaveHistory(query, items, started, stopped, settings.HistoryLimit);
 
         if (_restart)
@@ -237,10 +263,11 @@ public partial class SearchView : UserControl
         _expanded.Clear();
         _active.Clear();
         _skipped.Clear();
+        _unreadable.Clear();
         _sequence = _storedHits = _filesWithMatches = 0;
         _matches = 0;
         SavedBanner.Visibility = Visibility.Collapsed;
-        SkippedPanel.Visibility = Visibility.Collapsed;
+        SkippedPanel.Visibility = UnreadablePanel.Visibility = Visibility.Collapsed;
         StatusCounts.Text = StatusSkipped.Text = "";
         UpdateEmptyText(true);
     }
@@ -251,6 +278,9 @@ public partial class SearchView : UserControl
         GoButton.Style = (Style)FindResource(running ? "DefaultButtonStyle" : "AccentButtonStyle");
         OverallProgress.Visibility = Visibility.Visible;
         PanelTitle.Text = running ? "Searching now" : PanelTitle.Text;
+        if (!running) return;
+        Outcome = "Searching…";
+        StatusChanged?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>Moves new results, skipped files and progress from the engine to the window.</summary>
@@ -260,11 +290,16 @@ public partial class SearchView : UserControl
         for (int added = 0; added < 2000 && engine.Results.TryDequeue(out var result); added++) Add(result);
         while (engine.Skipped.TryDequeue(out var skipped))
         {
-            string reason = skipped.Reason == "Skipped" ? "stopped at " + skipped.Progress.ToString("0%", CultureInfo.InvariantCulture) : skipped.Reason;
-            _skipped.Add($"{Path.GetFileName(skipped.Path)} · {reason}");
+            string reason = skipped.Reason == "Skipped"
+                ? $"{Sizes.Format(skipped.Length)} · skipped by you at {skipped.Progress.ToString("0%", CultureInfo.InvariantCulture)}"
+                : skipped.Reason;
+            _skipped.Add(new ProblemRow(skipped.Path, reason));
         }
+        while (engine.Unreadable.TryDequeue(out var unreadable)) _unreadable.Add(new ProblemRow(unreadable.Path, unreadable.Reason));
         SkippedPanel.Visibility = _skipped.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
-        SkippedTitle.Text = $"Skipped · {_skipped.Count}";
+        SkippedTitle.Text = $"Skipped · {_skipped.Count:N0}";
+        UnreadablePanel.Visibility = _unreadable.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UnreadableTitle.Text = $"Couldn't be read · {_unreadable.Count:N0}";
 
         var current = engine.Active.Values.Where(a => _single != null || a.Elapsed.TotalSeconds >= 0.5).ToList();
         for (int i = _active.Count - 1; i >= 0; i--)
@@ -280,7 +315,7 @@ public partial class SearchView : UserControl
         PanelCounts.Text = $"{done:N0} of {found:N0}{(engine.Enumerating ? "+" : "")} files";
         StatusText.Text = "Searching… " + Sizes.Duration(_clock.Elapsed.TotalSeconds);
         StatusCounts.Text = Counts();
-        StatusSkipped.Text = Problems(engine);
+        StatusSkipped.Text = Problems();
         UpdateEmptyText(true);
     }
 
@@ -290,7 +325,7 @@ public partial class SearchView : UserControl
         PanelTitle.Text = stopped ? "Search stopped" : "Search complete";
         PanelNote.Visibility = Visibility.Visible;
         PanelNote.Text = stopped ? "Stopped before every file was searched."
-            : _skipped.Count > 0 ? "Every file was searched except the skipped ones below."
+            : _skipped.Count + _unreadable.Count > 0 ? "Every file was searched except the ones listed below."
             : "Every file in scope was searched.";
         long done = engine.FilesDone;
         OverallProgress.Value = stopped && engine.FilesFound > 0 ? done / (double)engine.FilesFound : 1;
@@ -298,7 +333,7 @@ public partial class SearchView : UserControl
         string time = Sizes.Duration(_clock.Elapsed.TotalSeconds);
         StatusText.Text = stopped ? "Stopped after " + time : "Finished in " + time;
         StatusCounts.Text = Counts();
-        StatusSkipped.Text = Problems(engine);
+        StatusSkipped.Text = Problems();
         UpdateEmptyText(false);
     }
 
@@ -308,11 +343,11 @@ public partial class SearchView : UserControl
         return $"{names}{_matches:N0} {(_matches == 1 ? "match" : "matches")} in {_filesWithMatches:N0} {(_filesWithMatches == 1 ? "file" : "files")}";
     }
 
-    string Problems(SearchEngine engine)
+    string Problems()
     {
         var parts = new List<string>();
         if (_skipped.Count > 0) parts.Add($"{_skipped.Count} skipped · results may be incomplete");
-        if (engine.Unreadable > 0) parts.Add($"{engine.Unreadable:N0} couldn't be read");
+        if (_unreadable.Count > 0) parts.Add($"{_unreadable.Count:N0} couldn't be read");
         return string.Join(" · ", parts);
     }
 
@@ -460,8 +495,11 @@ public partial class SearchView : UserControl
         }
     }
 
-    void QueryBox_TextChanged(object sender, TextChangedEventArgs e) =>
+    void QueryBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
         QueryPlaceholder.Visibility = QueryBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        StatusChanged?.Invoke(this, EventArgs.Empty);
+    }
 
     void OnPreviewKeyDown(object sender, KeyEventArgs e)
     {
@@ -480,9 +518,10 @@ public partial class SearchView : UserControl
 
     void JustThisFile_Changed(object sender, RoutedEventArgs e)
     {
+        // Also ticked before the view is shown, by a new tab or from History: only the hint changes then.
+        UpdateParentScope();
         if (!IsLoaded) return;
         _cts?.Cancel();
-        UpdateParentScope();
         if (Running) return;
         _engine = null;
         Clear();
@@ -502,6 +541,11 @@ public partial class SearchView : UserControl
     }
 
     void Row_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => Activate(((ListBoxItem)sender).DataContext as Row);
+
+    void Problem_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
+    {
+        if (((ListBoxItem)sender).DataContext is ProblemRow row) Shell.ShowInExplorer(row.Path);
+    }
 
     void ResultsList_KeyDown(object sender, KeyEventArgs e)
     {

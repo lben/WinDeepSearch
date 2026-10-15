@@ -29,11 +29,11 @@ public partial class App : Application
         {
             // The Windows 11 menu, for one item; the classic menu, for the empty space inside a folder.
             case ["--path", var path]:
-                new SearchWindow(SearchTarget.FromPath(CleanPath(path))).Show();
+                new MainWindow(SearchTarget.FromPath(CleanPath(path))).Show();
                 break;
             // The Windows 11 menu, for several items.
             case ["--items", var list]:
-                new SearchWindow(SearchTarget.FromPaths(ReadList(list))).Show();
+                new MainWindow(SearchTarget.FromPaths(ReadList(list))).Show();
                 break;
             // The classic menu, once per selected item.
             case ["--select", var path]:

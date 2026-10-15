@@ -1,0 +1,25 @@
+#include <winver.h>
+
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION @WDS_VERSION_COMMAS@,0
+PRODUCTVERSION @WDS_VERSION_COMMAS@,0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "WinDeepSearch"
+            VALUE "FileDescription", "WinDeepSearch right-click menu command"
+            VALUE "FileVersion", "@WDS_VERSION@"
+            VALUE "OriginalFilename", "WinDeepSearch.ShellExt.dll"
+            VALUE "ProductName", "WinDeepSearch"
+            VALUE "ProductVersion", "@WDS_VERSION@"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

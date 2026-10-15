@@ -23,6 +23,33 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
+        <!-- Skipped files and files that couldn't be read: the name, why, and a click shows the file in File Explorer. -->
+        <Style x:Key="ProblemList" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
+            <Setter Property="MaxHeight" Value="150" />
+            <Setter Property="Margin" Value="8,0,8,8" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate DataType="{x:Type local:ProblemRow}">
+                        <StackPanel ToolTip="{Binding Path}">
+                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="12.5" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding Reason}" TextTrimming="CharacterEllipsis" Style="{StaticResource Caption}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                        <Setter Property="Padding" Value="8,4" />
+                        <EventSetter Event="MouseLeftButtonUp" Handler="Problem_MouseLeftButtonUp" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate DataType="{x:Type local:SelectedItem}">
             <Border Height="28" Margin="0,0,6,6" Padding="10,0,12,0" CornerRadius="14" BorderThickness="1" ToolTip="{Binding FullPath}"
                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}">
@@ -238,16 +265,21 @@
                         <TextBlock x:Name="PanelCounts" Margin="0,6,0,0" Style="{StaticResource Caption}" />
                     </StackPanel>
                     <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
-                    <StackPanel x:Name="SkippedPanel" DockPanel.Dock="Bottom" Margin="16,10,16,12" Visibility="Collapsed">
-                        <TextBlock x:Name="SkippedTitle" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource SystemFillColorCautionBrush}" />
-                        <ItemsControl x:Name="SkippedList" AutomationProperties.AutomationId="SkippedList">
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis" Style="{StaticResource Caption}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
-                    </StackPanel>
+                    <!-- Each list scrolls on its own, so a long one never squeezes out the files being searched. -->
+                    <DockPanel x:Name="UnreadablePanel" DockPanel.Dock="Bottom" Visibility="Collapsed">
+                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                        <TextBlock x:Name="UnreadableTitle" DockPanel.Dock="Top" Margin="16,10,16,4" FontWeight="SemiBold" FontSize="12"
+                                   Foreground="{DynamicResource SystemFillColorCriticalBrush}" />
+                        <ListBox x:Name="UnreadableList" Style="{StaticResource ProblemList}"
+                                 AutomationProperties.AutomationId="UnreadableList" AutomationProperties.Name="Files that couldn't be read" />
+                    </DockPanel>
+                    <DockPanel x:Name="SkippedPanel" DockPanel.Dock="Bottom" Visibility="Collapsed">
+                        <Border DockPanel.Dock="Top" Height="1" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
+                        <TextBlock x:Name="SkippedTitle" DockPanel.Dock="Top" Margin="16,10,16,4" FontWeight="SemiBold" FontSize="12"
+                                   Foreground="{DynamicResource SystemFillColorCautionBrush}" />
+                        <ListBox x:Name="SkippedList" Style="{StaticResource ProblemList}"
+                                 AutomationProperties.AutomationId="SkippedList" AutomationProperties.Name="Skipped files" />
+                    </DockPanel>
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="8,6">
                             <ItemsControl x:Name="ActiveList" AutomationProperties.AutomationId="ActiveList">

@@ -28,8 +28,11 @@ jobs:
 
       - name: Build the Windows 11 menu command
         run: |
-          cmake -S src/WinDeepSearch.ShellExt -B build/shellext -A x64
+          cmake -S src/WinDeepSearch.ShellExt -B build/shellext -A x64 "-DWDS_VERSION=$env:WDS_VERSION"
           cmake --build build/shellext --config Release
+          $info = (Get-Item build/shellext/Release/WinDeepSearch.ShellExt.dll).VersionInfo
+          Write-Host "Menu command DLL: $($info.ProductName) $($info.ProductVersion)"
+          if ($info.ProductName -ne 'WinDeepSearch' -or $info.ProductVersion -ne $env:WDS_VERSION) { throw 'The DLL does not carry the product name and version.' }
 
       - name: Publish the app
         run: |

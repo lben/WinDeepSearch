@@ -35,13 +35,13 @@ static class Selection
                 if (HandOver(path)) return false;
                 continue;
             }
-            var window = new SearchWindow(SearchTarget.FromPath(path));
+            var window = new MainWindow(SearchTarget.FromPath(path));
             _ = CollectAsync(server, window);
             window.Show();
             return true;
         }
         // The pipe kept changing hands; this item gets a window of its own.
-        new SearchWindow(SearchTarget.FromPath(path)).Show();
+        new MainWindow(SearchTarget.FromPath(path)).Show();
         return true;
     }
 
@@ -64,7 +64,7 @@ static class Selection
     }
 
     /// <summary>Runs on the window's thread: the awaits come back to it.</summary>
-    static async Task CollectAsync(NamedPipeServerStream server, SearchWindow window)
+    static async Task CollectAsync(NamedPipeServerStream server, MainWindow window)
     {
         using (server)
         {
