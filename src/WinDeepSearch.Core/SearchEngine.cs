@@ -115,22 +115,20 @@ public sealed class SearchEngine
             while (pending.Count > 0)
             {
                 var dir = pending.Pop();
-                IEnumerable<FileSystemInfo> entries;
                 try
                 {
-                    entries = dir.EnumerateFileSystemInfos("*", options);
+                    foreach (var entry in dir.EnumerateFileSystemInfos("*", options))
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        if (entry is FileInfo file) await Add(file, ct);
+                        else if (entry is DirectoryInfo sub && !IsIgnored(sub) && !IsLink(sub)
+                                 && !sub.FullName.Equals(_dataFolder, StringComparison.OrdinalIgnoreCase)) pending.Push(sub);
+                    }
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
                 {
-                    continue;
-                }
-
-                foreach (var entry in entries)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    if (entry is FileInfo file) await Add(file, ct);
-                    else if (entry is DirectoryInfo sub && !IsIgnored(sub) && !IsLink(sub)
-                             && !sub.FullName.Equals(_dataFolder, StringComparison.OrdinalIgnoreCase)) pending.Push(sub);
+                    // Listing can also fail part-way (a network drive dropping, say): skip the rest of this folder
+                    // rather than end the search.
                 }
             }
         }

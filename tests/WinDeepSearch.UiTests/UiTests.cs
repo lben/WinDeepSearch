@@ -10,6 +10,7 @@ using FlaUI.Core.Tools;
 using FlaUI.Core.WindowsAPI;
 using FlaUI.UIA3;
 using Microsoft.Win32;
+using WinDeepSearch.Core;
 using WinDeepSearch.Tests;
 using Xunit;
 
@@ -323,7 +324,8 @@ public sealed class UiTests : IDisposable
         Assert.Equal(@"C:\", scope.Text);
         Shot(window, "08-main-app");
 
-        scope.Text = _dir;
+        // Pasted the way File Explorer's "Copy as path" puts it, in quotes.
+        scope.Text = $"\"{_dir}\"";
         string historyDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WinDeepSearch", "history");
         int saved = Directory.Exists(historyDir) ? Directory.GetFiles(historyDir, "*.summary.json").Length : 0;
         Search(window, "Invoice #2041", regex: false);
@@ -388,6 +390,38 @@ public sealed class UiTests : IDisposable
         restarted.FindFirstDescendant(cf => cf.ByName("Fewer lines")).AsButton().Invoke();
         Retry.WhileFalse(() => !Texts(restarted.FindFirstDescendant(cf => cf.ByAutomationId("IgnoredList"))).Contains("zz-ignored"), TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
         Assert.Equal("3", restarted.FindFirstDescendant(cf => cf.ByAutomationId("ContextLines")).Name);
+    }
+
+    [Fact]
+    public void SettingsChangedInTwoWindowsAreBothKept()
+    {
+        // Every window is a process of its own, and each shows Settings. The windows open on top of each other, so
+        // the pages are picked without the mouse.
+        var first = Launch();
+        var second = Launch();
+        first.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).AsListBoxItem().Select();
+        second.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).AsListBoxItem().Select();
+        try
+        {
+            AddIgnored(first, "zz-first");
+            AddIgnored(second, "zz-second");
+
+            var list = second.FindFirstDescendant(cf => cf.ByAutomationId("IgnoredList"));
+            Retry.WhileFalse(() => Texts(list).Contains("zz-second"), TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
+            Assert.Contains("zz-first", Texts(list));
+            Assert.Contains("zz-first", Settings.Load(AppPaths.SettingsFile).IgnoredFolders);
+            Assert.Contains("zz-second", Settings.Load(AppPaths.SettingsFile).IgnoredFolders);
+        }
+        finally
+        {
+            second.FindFirstDescendant(cf => cf.ByName("Reset to defaults")).AsButton().Invoke();
+        }
+    }
+
+    static void AddIgnored(Window window, string name)
+    {
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NewIgnored")).AsTextBox().Text = name;
+        window.FindFirstDescendant(cf => cf.ByAutomationId("AddIgnored")).AsButton().Invoke();
     }
 
     [Fact]

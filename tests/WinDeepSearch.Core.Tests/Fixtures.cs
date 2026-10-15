@@ -173,9 +173,10 @@ public static class Fixtures
     /// <summary>
     /// A PDF whose first page has the given text lines and, when given, a second page holding the picture
     /// (decoded from PNG) on part of the page. With <paramref name="hiddenText"/> the picture page also gets an
-    /// invisible text layer, the way scanners make a "searchable PDF".
+    /// invisible text layer, the way scanners make a "searchable PDF". <paramref name="pictureY"/> is where the picture's
+    /// bottom edge sits, in points from the bottom of the page; a negative value puts it outside the page.
     /// </summary>
-    public static void Pdf(string path, string[] lines, byte[]? picturePng = null, string[]? hiddenText = null)
+    public static void Pdf(string path, string[] lines, byte[]? picturePng = null, string[]? hiddenText = null, int pictureY = 400)
     {
         var objects = new List<byte[]>();
         int Add(string body) { objects.Add(Encoding.Latin1.GetBytes(body)); return objects.Count; }
@@ -206,7 +207,7 @@ public static class Fixtures
             var rgb = Rgb(bitmap);
             int image = AddStream($"/Type /XObject /Subtype /Image /Width {bitmap.Width} /Height {bitmap.Height} /ColorSpace /DeviceRGB /BitsPerComponent 8", rgb);
             int width = 450, height = 450 * bitmap.Height / bitmap.Width;
-            var draw = new StringBuilder($"q {width} 0 0 {height} 72 400 cm /Im1 Do Q\n");
+            var draw = new StringBuilder($"q {width} 0 0 {height} 72 {pictureY} cm /Im1 Do Q\n");
             if (hiddenText != null)
             {
                 draw.Append("BT 3 Tr /F1 14 Tf 72 460 Td 18 TL\n"); // render mode 3: invisible

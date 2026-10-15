@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Text;
 using System.Text.Unicode;
@@ -18,7 +19,8 @@ internal static class TextFiles
 
     public static void Search(string path, Matcher matcher, ActiveFile active, FileResult result, CancellationToken ct)
     {
-        using var stream = Files.OpenRead(path);
+        // No buffer of its own: the reader below has one, sized to the file.
+        using var stream = Files.OpenRead(path, bufferSize: 0);
         var sample = new byte[SampleBytes];
         int sampled = stream.ReadAtLeast(sample, SampleBytes, throwOnEndOfStream: false);
         var (encoding, bom) = Detect(sample.AsSpan(0, sampled));
@@ -41,32 +43,40 @@ internal static class TextFiles
     static void Scan(FileStream stream, Encoding encoding, int bom, Matcher matcher, ActiveFile active, FileResult result, CancellationToken ct)
     {
         stream.Position = bom;
-        using var reader = new StreamReader(stream, encoding, detectEncodingFromByteOrderMarks: false, bufferSize: 1 << 16, leaveOpen: true);
-        var buffer = new char[ChunkChars];
-        string carry = "";
-        int acceptFrom = 0, firstLine = 1;
-
-        while (true)
+        using var reader = new StreamReader(stream, encoding, detectEncodingFromByteOrderMarks: false, bufferSize: (int)Math.Clamp(stream.Length, 128, 1 << 16), leaveOpen: true);
+        // Borrowed rather than allocated: a new 8 MB buffer for every small file costs more than reading the file.
+        var buffer = ArrayPool<char>.Shared.Rent(ChunkChars);
+        try
         {
-            ct.ThrowIfCancellationRequested();
-            int read = reader.ReadBlock(buffer, 0, ChunkChars);
-            bool end = read < ChunkChars;
-            // In .NET, $ only matches before \n, so Windows line endings are made \n first. A \r\n split across two
-            // reads is joined in the next window, which starts with this window's tail.
-            string window = string.Concat(carry, buffer.AsSpan(0, read)).Replace("\r\n", "\n");
-            int acceptTo = end ? window.Length : window.Length - LookaheadChars;
+            string carry = "";
+            int acceptFrom = 0, firstLine = 1;
 
-            int lastEnd = matcher.Search(window, acceptFrom, acceptTo, new TextSegment { Text = window, Locate = LineLabel, FirstLine = firstLine }, result);
-            if (stream.Length > 0) active.Progress = Math.Min(1, stream.Position / (double)stream.Length);
-            if (end) return;
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                int read = reader.ReadBlock(buffer, 0, ChunkChars);
+                bool end = read < ChunkChars;
+                // In .NET, $ only matches before \n, so Windows line endings are made \n first. A \r\n split across two
+                // reads is joined in the next window, which starts with this window's tail.
+                string window = string.Concat(carry, buffer.AsSpan(0, read)).Replace("\r\n", "\n");
+                int acceptTo = end ? window.Length : window.Length - LookaheadChars;
 
-            int keepFrom = window.LastIndexOf('\n', acceptTo - LookbehindChars) + 1;
-            // A huge line with no break nearby: carry a fixed amount instead of the whole line.
-            if (keepFrom < acceptTo - 4 * LookbehindChars) keepFrom = acceptTo - LookbehindChars;
-            firstLine += window.AsSpan(0, keepFrom).Count('\n');
-            carry = window[keepFrom..];
-            // A match that ran past acceptTo was already counted; the next window starts after it.
-            acceptFrom = Math.Max(acceptTo, lastEnd) - keepFrom;
+                int lastEnd = matcher.Search(window, acceptFrom, acceptTo, new TextSegment { Text = window, Locate = LineLabel, FirstLine = firstLine }, result);
+                if (stream.Length > 0) active.Progress = Math.Min(1, stream.Position / (double)stream.Length);
+                if (end) return;
+
+                int keepFrom = window.LastIndexOf('\n', acceptTo - LookbehindChars) + 1;
+                // A huge line with no break nearby: carry a fixed amount instead of the whole line.
+                if (keepFrom < acceptTo - 4 * LookbehindChars) keepFrom = acceptTo - LookbehindChars;
+                firstLine += window.AsSpan(0, keepFrom).Count('\n');
+                carry = window[keepFrom..];
+                // A match that ran past acceptTo was already counted; the next window starts after it.
+                acceptFrom = Math.Max(acceptTo, lastEnd) - keepFrom;
+            }
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
         }
     }
 

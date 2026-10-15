@@ -6,8 +6,8 @@ internal static class Files
     const FileAttributes RecallOnDataAccess = (FileAttributes)0x00400000;
 
     /// <summary>Opens for reading without blocking other programs that are writing or deleting the file.</summary>
-    public static FileStream OpenRead(string path) =>
-        new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1 << 16, FileOptions.SequentialScan);
+    public static FileStream OpenRead(string path, int bufferSize = 1 << 16) =>
+        new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, bufferSize, FileOptions.SequentialScan);
 
     /// <summary>True for cloud files (OneDrive and similar) whose content isn't on this PC.</summary>
     public static bool IsOnlineOnly(FileAttributes attributes) =>

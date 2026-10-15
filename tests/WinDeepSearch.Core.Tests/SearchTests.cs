@@ -263,6 +263,19 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task APictureOutsideThePageDoesNotStopThePdf()
+    {
+        // Layout programs leave pictures beyond the page edge; nothing of them shows, so there is nothing to read.
+        Fixtures.Pdf(PathOf("bleed.pdf"), ["Invoice #1001 is paid"], Fixtures.TextPicture("Hidden"), pictureY: -2000);
+
+        var engine = new SearchEngine(new SearchQuery("Invoice #1001", false, false, true), [_dir], new Settings(), new ImageText(_cache), _cache);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Empty(engine.Unreadable);
+        Assert.Equal("Page 1", Assert.Single(engine.Results).Hits.Single().Location);
+    }
+
+    [Fact]
     public async Task ASearchableScanIsCountedOnce()
     {
         var scan = Fixtures.TextPicture("Quarterly report", "Invoice 2041 overdue");

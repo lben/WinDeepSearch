@@ -135,7 +135,17 @@ public partial class SearchView : UserControl
     }
 
     /// <summary>On the main app's Search page this includes the folder typed in, so a new tab starts from it.</summary>
-    public SearchTarget Target => _target.FromApp ? _target with { Root = ScopeBox.Text.Trim() } : _target;
+    public SearchTarget Target => _target.FromApp ? _target with { Root = TypedFolder() } : _target;
+
+    /// <summary>
+    /// The folder typed on the main app's Search page. File Explorer's "Copy as path" puts it in quotes, and a bare drive
+    /// such as "D:" would mean the current folder on that drive rather than the whole drive.
+    /// </summary>
+    string TypedFolder()
+    {
+        string path = ScopeBox.Text.Trim().Trim('"');
+        return path.Length == 2 && path[1] == ':' ? path + @"\" : path;
+    }
 
     public void Show(SearchTarget target)
     {
@@ -201,7 +211,7 @@ public partial class SearchView : UserControl
     public async Task RunAsync()
     {
         var query = new SearchQuery(QueryBox.Text, RegexToggle.IsChecked == true, CaseToggle.IsChecked == true, ImagesToggle.IsChecked == true);
-        string root = _target.FromApp ? ScopeBox.Text.Trim() : _target.Root;
+        string root = _target.FromApp ? TypedFolder() : _target.Root;
         var items = _target.Items;
         string? error = Matcher.Validate(query) ?? (items != null || Directory.Exists(root) ? null : $"The folder \"{root}\" doesn't exist.");
         ErrorText.Text = error ?? "";
