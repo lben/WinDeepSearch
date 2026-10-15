@@ -42,7 +42,8 @@ code-signed, so Windows SmartScreen may warn about it: choose **More info › Ru
 
 Windows asks once for administrator approval (on a standard account, for an administrator's password): the Windows 11
 menu only accepts entries from signed packages, so the installer adds the package's certificate to the computer's
-*Trusted People*. Every release is signed with the same certificate, so updates don't ask again. If you decline, the
+*Trusted People*. From 0.2.0 on, every release is signed with the same certificate, so updates don't ask again
+(updating from 0.1.0 asks once more). If you decline, the
 entry still appears under **Show more options**; to add it to the Windows 11 menu later, run
 `%LOCALAPPDATA%\Programs\WinDeepSearch\WinDeepSearch.exe --register` from **Win+R**. Uninstall from **Settings › Apps**.
 
