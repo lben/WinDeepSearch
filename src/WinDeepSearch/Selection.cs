@@ -23,34 +23,36 @@ static class Selection
             NamedPipeServerStream server;
             try
             {
-                server = new NamedPipeServerStream(PipeName, PipeDirection.In, 1, PipeTransmissionMode.Byte,
+                server = new NamedPipeServerStream(PipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte,
                     PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
             }
-            catch (IOException)
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 // Another copy is listening.
                 if (HandOver(path)) return;
                 continue;
             }
             var window = new SearchWindow(SearchTarget.FromPath(path));
-            window.Show();
             _ = CollectAsync(server, window);
+            window.Show();
             return;
         }
         // The pipe kept changing hands; this item gets a window of its own.
         new SearchWindow(SearchTarget.FromPath(path)).Show();
     }
 
+    /// <summary>True once the first copy confirmed it took the item.</summary>
     static bool HandOver(string path)
     {
         try
         {
-            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out, PipeOptions.CurrentUserOnly);
+            using var client = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut, PipeOptions.CurrentUserOnly);
             client.Connect(2000);
-            client.Write(Encoding.UTF8.GetBytes(path));
-            return true;
+            client.Write(Encoding.UTF8.GetBytes(path + "\n"));
+            client.Flush();
+            return client.ReadByte() == 1;
         }
-        catch (Exception e) when (e is IOException or TimeoutException)
+        catch (Exception e) when (e is IOException or TimeoutException or UnauthorizedAccessException)
         {
             // The first copy stopped listening just now.
             return false;
@@ -62,15 +64,21 @@ static class Selection
     {
         using (server)
         {
+            var buffer = new byte[1];
             while (true)
             {
                 using var quiet = new CancellationTokenSource(Quiet);
                 try
                 {
                     await server.WaitForConnectionAsync(quiet.Token);
-                    using var reader = new StreamReader(server, Encoding.UTF8, leaveOpen: true);
-                    string path = await reader.ReadToEndAsync(quiet.Token);
-                    if (path.Length > 0) window.AddItem(path);
+                    using (var reader = new StreamReader(server, Encoding.UTF8, leaveOpen: true))
+                    {
+                        if (await reader.ReadLineAsync(quiet.Token) is { Length: > 0 } path) window.AddItem(path);
+                    }
+                    server.WriteByte(1);
+                    server.Flush();
+                    // The copy closes its end once it has read the confirmation.
+                    await server.ReadAsync(buffer, quiet.Token);
                     server.Disconnect();
                 }
                 catch (Exception e) when (e is OperationCanceledException or IOException)
