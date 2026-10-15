@@ -145,8 +145,10 @@ public sealed class UiTests : IDisposable
         var more = chips.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).AsButton();
         Assert.Equal("+2 more", more.Name);
         more.Invoke();
-        Retry.WhileFalse(() => SelectedNames(chips).Count == 7, TimeSpan.FromSeconds(5), throwOnTimeout: true);
-        Assert.Equal("Show fewer", chips.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).Name);
+        Retry.WhileFalse(() => SelectedNames(window).Count == 7, TimeSpan.FromSeconds(5), ignoreException: true);
+        Shot(window, "06b-selected-items-all");
+        Assert.Equal(["Archive", "billing.log", "extra1.txt", "extra2.txt", "Invoice 2041.txt", "letter.docx", "pages.tif"], SelectedNames(window));
+        Assert.Equal("Show fewer", window.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).Name);
 
         Search(window, "Invoice", regex: false);
         var names = ResultNames(window);
@@ -154,7 +156,7 @@ public sealed class UiTests : IDisposable
         Assert.Contains("letter.docx · 1 match", names);
         Assert.Contains("old.txt · 1 match", names);
         Assert.DoesNotContain(names, n => n.StartsWith("contract.pdf") || n.StartsWith("scan.png"));
-        Shot(window, "06b-selected-items-results");
+        Shot(window, "06c-selected-items-results");
     }
 
     [Fact]
@@ -169,7 +171,7 @@ public sealed class UiTests : IDisposable
         Assert.Equal(selected, SelectedNames(window));
         Retry.WhileFalse(() => Process.GetProcessesByName("WinDeepSearch").Length == 1, TimeSpan.FromSeconds(10), throwOnTimeout: true);
         Assert.Single(_automation.GetDesktop().FindAllChildren(cf => cf.ByControlType(ControlType.Window)), w => w.Name.StartsWith("WinDeepSearch"));
-        Shot(window, "06c-classic-menu-selection");
+        Shot(window, "06d-classic-menu-selection");
     }
 
     [Fact]

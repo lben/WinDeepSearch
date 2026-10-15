@@ -37,7 +37,8 @@ public partial class App : Application
                 break;
             // The classic menu, once per selected item.
             case ["--select", var path]:
-                Selection.Open(CleanPath(path));
+                // A copy that handed its item over opens no window, so nothing else would end it.
+                if (!Selection.Open(CleanPath(path))) Shutdown();
                 break;
             default:
                 new MainWindow().Show();

@@ -15,8 +15,11 @@ static class Selection
     static readonly string PipeName = $"WinDeepSearch.Selection.{Process.GetCurrentProcess().SessionId}";
     static readonly TimeSpan Quiet = TimeSpan.FromSeconds(1.5);
 
-    /// <summary>Opens the window for <paramref name="path"/>, or hands it to the copy that already did.</summary>
-    public static void Open(string path)
+    /// <summary>
+    /// Opens the window for <paramref name="path"/>, or hands it to the copy that already did and returns false:
+    /// this copy then has nothing left to do.
+    /// </summary>
+    public static bool Open(string path)
     {
         for (int attempt = 0; attempt < 5; attempt++)
         {
@@ -29,16 +32,17 @@ static class Selection
             catch (Exception e) when (e is IOException or UnauthorizedAccessException)
             {
                 // Another copy is listening.
-                if (HandOver(path)) return;
+                if (HandOver(path)) return false;
                 continue;
             }
             var window = new SearchWindow(SearchTarget.FromPath(path));
             _ = CollectAsync(server, window);
             window.Show();
-            return;
+            return true;
         }
         // The pipe kept changing hands; this item gets a window of its own.
         new SearchWindow(SearchTarget.FromPath(path)).Show();
+        return true;
     }
 
     /// <summary>True once the first copy confirmed it took the item.</summary>
