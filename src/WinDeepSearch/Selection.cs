@@ -78,7 +78,7 @@ static class Selection
                     server.WriteByte(1);
                     server.Flush();
                     // The copy closes its end once it has read the confirmation.
-                    await server.ReadAsync(buffer, quiet.Token);
+                    while (await server.ReadAsync(buffer, quiet.Token) > 0) { }
                     server.Disconnect();
                 }
                 catch (Exception e) when (e is OperationCanceledException or IOException)
