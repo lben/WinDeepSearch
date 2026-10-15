@@ -145,8 +145,10 @@ public sealed class UiTests : IDisposable
         Tabs(window).Items[0].Select();
         Retry.WhileFalse(() => ResultNames(window).Contains("billing.log · 7 matches"), TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
 
-        // Ctrl+T opens a tab, Ctrl+W closes the one shown, and × closes any.
+        // Ctrl+T opens a tab, Ctrl+W closes the one shown, and × closes any. A Ctrl+click on the shown tab first
+        // must not leave the window without one.
         window.Focus();
+        using (Keyboard.Pressing(VirtualKeyShort.CONTROL)) Tabs(window).Items[0].Click();
         Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_T);
         Retry.WhileFalse(() => TabNames(window).Count == 3, TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true);
         Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_W);
