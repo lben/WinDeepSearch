@@ -180,6 +180,8 @@ internal sealed unsafe class PdfFile : IDisposable
             FPDF_PageToDevice(page, 0, 0, width, height, 0, b.Right, b.Top, out int x2, out int y2);
             int left = Math.Clamp(Math.Min(x1, x2), 0, width), right = Math.Clamp(Math.Max(x1, x2), 0, width);
             int top = Math.Clamp(Math.Min(y1, y2), 0, height), bottom = Math.Clamp(Math.Max(y1, y2), 0, height);
+            // A picture outside the page clips to nothing, and the reader rejects an empty picture.
+            if (right <= left || bottom <= top) continue;
             if (right - left < ImageText.MinSide && bottom - top < ImageText.MinSide) continue;
 
             var region = new PixelRect(left, top, right - left, bottom - top);
