@@ -147,7 +147,8 @@ public sealed class UiTests : IDisposable
         more.Invoke();
         Retry.WhileFalse(() => SelectedNames(window).Count == 7, TimeSpan.FromSeconds(5), ignoreException: true);
         Shot(window, "06b-selected-items-all");
-        Assert.Equal(["Archive", "billing.log", "extra1.txt", "extra2.txt", "Invoice 2041.txt", "letter.docx", "pages.tif"], SelectedNames(window));
+        // The order on screen is checked above; once the list is rebuilt, UI Automation reports its items out of order.
+        Assert.Equal(selected.Order(), SelectedNames(window).Order());
         Assert.Equal("Show fewer", window.FindFirstDescendant(cf => cf.ByAutomationId("MoreItemsButton")).Name);
 
         Search(window, "Invoice", regex: false);
