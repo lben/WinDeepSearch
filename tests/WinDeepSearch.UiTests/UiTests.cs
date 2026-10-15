@@ -70,15 +70,13 @@ public sealed class UiTests : IDisposable
         Shot(window, "01-results");
 
         // Hovering a file shows the lines around its first matches.
-        Mouse.MoveTo(Item(window, "billing.log").GetClickablePoint());
-        var tip = WaitForToolTip();
+        var tip = HoverForToolTip(Item(window, "billing.log"));
         Assert.Contains(Texts(tip), t => t.Contains("Created Invoice #4002"));
         Assert.Contains(Texts(tip), t => t.Contains("DEBUG step 1"));
         ShotScreen("02-hover-context");
 
         // Text read from a picture comes with the picture.
-        Mouse.MoveTo(Item(window, "scan.png").GetClickablePoint());
-        tip = WaitForToolTip();
+        tip = HoverForToolTip(Item(window, "scan.png"));
         Retry.WhileNull(() => tip.FindFirstDescendant(cf => cf.ByControlType(ControlType.Image)), TimeSpan.FromSeconds(10), throwOnTimeout: true);
         Thread.Sleep(500);
         ShotScreen("03-hover-picture");
@@ -316,8 +314,7 @@ public sealed class UiTests : IDisposable
             var window = Launch("--path", _dir);
             Search(window, InvoiceRegex, regex: true);
             Item(window, "billing.log").FindFirstDescendant(cf => cf.ByAutomationId("ExpandButton")).AsButton().Invoke();
-            Mouse.MoveTo(Item(window, "Line 2 ·").GetClickablePoint());
-            WaitForToolTip();
+            HoverForToolTip(Item(window, "Line 2 ·"));
             ShotScreen("11-dark");
         }
         finally
@@ -501,13 +498,19 @@ public sealed class UiTests : IDisposable
         Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("ResultsList")).AsListBox().Items.FirstOrDefault(i => i.Name.StartsWith(prefix)),
             TimeSpan.FromSeconds(10), throwOnTimeout: true, ignoreException: true).Result;
 
-    AutomationElement WaitForToolTip()
+    AutomationElement HoverForToolTip(AutomationElement element)
     {
-        // WPF shows a tooltip in its own popup window, so it sits a level below the desktop.
-        var tip = Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(10), ignoreException: true).Result;
-        if (tip == null) ShotScreen("tooltip-missing");
-        Assert.NotNull(tip);
-        return tip;
+        var point = element.GetClickablePoint();
+        // A tooltip opens on mouse movement; when one doesn't, nudge the mouse and wait again.
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            Mouse.MoveTo(point.X, point.Y + 2 * attempt);
+            // WPF shows a tooltip in its own popup window, so it sits a level below the desktop.
+            var tip = Retry.WhileNull(() => _automation.GetDesktop().FindFirstDescendant(cf => cf.ByControlType(ControlType.ToolTip)), TimeSpan.FromSeconds(5), ignoreException: true).Result;
+            if (tip != null) return tip;
+        }
+        ShotScreen("tooltip-missing");
+        throw new Xunit.Sdk.XunitException("No tooltip appeared.");
     }
 
     // A closed classic menu can stay in the tree, hidden; clicking its item before the new menu shows does nothing.
