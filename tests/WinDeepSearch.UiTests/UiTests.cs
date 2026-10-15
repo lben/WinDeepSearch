@@ -300,7 +300,7 @@ public sealed class UiTests : IDisposable
 
         WaitForFinish(window);
         Assert.Contains(window.FindFirstDescendant(cf => cf.ByAutomationId("SkippedList")).AsListBox().Items,
-            i => i.Name.StartsWith("huge.log · 300.0 MB · skipped by you at"));
+            i => i.Name.StartsWith("huge.log · 2.5 GB · skipped by you at"));
         Assert.Contains("small.txt · 1 match", ResultNames(window));
         Shot(window, "07-skipped");
 
