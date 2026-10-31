@@ -19,6 +19,7 @@ public sealed class HistoryItem(HistorySummary summary)
         .. summary.Query.UseRegex ? [".*"] : Array.Empty<string>(),
         .. summary.Query.MatchCase ? ["Aa"] : Array.Empty<string>(),
         .. summary.Query.ReadImages ? ["OCR"] : Array.Empty<string>(),
+        .. summary.Query.NamesOnly ? ["Names"] : Array.Empty<string>(),
     ];
 
     public string When => Summary.StartedAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture);
@@ -84,7 +85,7 @@ public partial class HistoryView : UserControl
         DetailFlags.Text = string.Join(" · ",
             s.Query.UseRegex ? "Regular expression" : "Plain text",
             s.Query.MatchCase ? "Match case" : "Ignore case",
-            s.Query.ReadImages ? "Text in images" : "No text in images");
+            s.Query.NamesOnly ? "File names only" : s.Query.ReadImages ? "Text in images" : "No text in images");
         DetailScope.Text = item.Scope;
         DetailMeta.Text = $"Searched {item.When} · took {Sizes.Duration(s.Seconds)}{(s.Stopped ? " · stopped early" : "")}";
         DetailSummary.Text = item.Totals;

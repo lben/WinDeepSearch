@@ -33,6 +33,9 @@ folder background in File Explorer, including the new Windows 11 menu, not just 
 makes it case-sensitive. Nothing runs until you press Enter, so it isn't chewing through your disk while you're still
 typing a pattern.
 
+**Just looking for a file?** The file button next to those switches to matching file and folder names only. Nothing
+is opened, so it flies through a whole drive, and folders show up in the results too.
+
 **Results you can read at a glance.** Files whose names match come first, then files ranked by how many times they
 match. Each row shows the first matching line. Hover for the lines around it, open the arrow to list every match, and
 click to jump to the file in File Explorer.

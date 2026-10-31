@@ -105,6 +105,25 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void NamesOnlyListsMatchingFilesAndFoldersWithoutReadingThem()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "Invoices 2026"));
+        var window = Launch("--path", _dir);
+        var namesOnly = window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton();
+        Assert.Equal(ToggleState.Off, namesOnly.ToggleState);
+        namesOnly.Toggle();
+        Search(window, "invoice", regex: false);
+
+        var names = ResultNames(window);
+        Assert.Contains("File names · 2", names);
+        Assert.Contains("Invoices 2026 · Name only", names);
+        Assert.Contains("Invoice 2041.txt · Name only", names);
+        // billing.log mentions invoices inside, but nothing was read.
+        Assert.DoesNotContain(names, n => n.StartsWith("Contents") || n.StartsWith("billing.log"));
+        Shot(window, "20-names-only");
+    }
+
+    [Fact]
     public void StartedFromAFileCanSearchJustThatFile()
     {
         var window = Launch("--path", Path.Combine(_dir, "billing.log"));

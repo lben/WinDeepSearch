@@ -1,6 +1,7 @@
 namespace WinDeepSearch.Core;
 
-public sealed record SearchQuery(string Text, bool UseRegex, bool MatchCase, bool ReadImages);
+/// <param name="NamesOnly">Match file and folder names only; nothing is read.</param>
+public sealed record SearchQuery(string Text, bool UseRegex, bool MatchCase, bool ReadImages, bool NamesOnly = false);
 
 public readonly record struct TextRange(int Start, int Length);
 
@@ -24,6 +25,9 @@ public sealed class FileResult
 {
     public required string Path { get; init; }
     public IReadOnlyList<TextRange> NameMatches { get; init; } = [];
+
+    /// <summary>A folder whose name matched (names-only searches list folders too).</summary>
+    public bool IsFolder { get; init; }
     public List<Hit> Hits { get; init; } = [];
     public int MatchCount { get; set; }
 
