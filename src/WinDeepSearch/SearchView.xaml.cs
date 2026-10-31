@@ -458,6 +458,7 @@ public partial class SearchView : UserControl
             {
                 Path = f.Result.Path,
                 NameMatches = f.Result.NameMatches,
+                IsFolder = f.Result.IsFolder,
                 MatchCount = f.Result.MatchCount,
                 Hits = f.Result.Hits.Take(50).ToList(),
                 HitsTruncated = f.Result.HitsTruncated || f.Result.Hits.Count > 50,
