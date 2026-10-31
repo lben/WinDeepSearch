@@ -50,6 +50,7 @@ public sealed class SearchEngine
     readonly IReadOnlyList<string> _targets;
     readonly IReadOnlyList<string> _ignored;
     readonly ImageText? _images;
+    readonly bool _namesOnly;
     readonly string _dataFolder;
     readonly Channel<(string Path, long Length, FileAttributes Attributes)> _files =
         Channel.CreateBounded<(string, long, FileAttributes)>(10_000);
@@ -68,6 +69,7 @@ public sealed class SearchEngine
         _targets = targets;
         _ignored = settings.IgnoredFolders;
         _images = query.ReadImages ? images : null;
+        _namesOnly = query.NamesOnly;
         _dataFolder = Path.TrimEndingDirectorySeparator(Path.GetFullPath(dataFolder));
     }
 
@@ -122,7 +124,12 @@ public sealed class SearchEngine
                         ct.ThrowIfCancellationRequested();
                         if (entry is FileInfo file) await Add(file, ct);
                         else if (entry is DirectoryInfo sub && !IsIgnored(sub) && !IsLink(sub)
-                                 && !sub.FullName.Equals(_dataFolder, StringComparison.OrdinalIgnoreCase)) pending.Push(sub);
+                                 && !sub.FullName.Equals(_dataFolder, StringComparison.OrdinalIgnoreCase))
+                        {
+                            pending.Push(sub);
+                            // A names-only search lists folders whose names match too.
+                            if (_namesOnly) await Add(sub, ct);
+                        }
                     }
                 }
                 catch (Exception e) when (e is IOException or UnauthorizedAccessException)
@@ -152,10 +159,11 @@ public sealed class SearchEngine
             target.StartsWith(Path.EndsInDirectorySeparator(other) ? other : other + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
             && !target.Equals(other, StringComparison.OrdinalIgnoreCase)));
 
-    async Task Add(FileInfo file, CancellationToken ct)
+    async Task Add(FileSystemInfo entry, CancellationToken ct)
     {
         Interlocked.Increment(ref _found);
-        await _files.Writer.WriteAsync((file.FullName, file.Exists ? file.Length : 0, file.Exists ? file.Attributes : 0), ct);
+        long length = entry is FileInfo file && file.Exists ? file.Length : 0;
+        await _files.Writer.WriteAsync((entry.FullName, length, entry.Exists ? entry.Attributes : 0), ct);
     }
 
     bool IsIgnored(DirectoryInfo dir)
@@ -190,9 +198,15 @@ public sealed class SearchEngine
         try
         {
             // Inside the try: a pattern can time out on a file name too.
-            result = new FileResult { Path = path, NameMatches = _matcher.MatchName(System.IO.Path.GetFileName(path)) };
+            result = new FileResult
+            {
+                Path = path,
+                NameMatches = _matcher.MatchName(System.IO.Path.GetFileName(path)),
+                IsFolder = (attributes & FileAttributes.Directory) != 0,
+            };
             // Reading a cloud file that isn't on this PC would download it; report it instead.
-            if (Files.IsOnlineOnly(attributes)) Skipped.Enqueue(new SkippedFile(path, 0, "Online-only file, not downloaded"));
+            if (_namesOnly) { }
+            else if (Files.IsOnlineOnly(attributes)) Skipped.Enqueue(new SkippedFile(path, 0, "Online-only file, not downloaded"));
             else Content.Search(path, _matcher, _images, active, result, skip.Token);
         }
         catch (OperationCanceledException) when (!searchToken.IsCancellationRequested)

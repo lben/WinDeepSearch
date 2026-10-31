@@ -206,11 +206,12 @@ public partial class SearchView : UserControl
         RegexToggle.IsChecked = summary.Query.UseRegex;
         CaseToggle.IsChecked = summary.Query.MatchCase;
         ImagesToggle.IsChecked = summary.Query.ReadImages;
+        NamesToggle.IsChecked = summary.Query.NamesOnly;
     }
 
     public async Task RunAsync()
     {
-        var query = new SearchQuery(QueryBox.Text, RegexToggle.IsChecked == true, CaseToggle.IsChecked == true, ImagesToggle.IsChecked == true);
+        var query = new SearchQuery(QueryBox.Text, RegexToggle.IsChecked == true, CaseToggle.IsChecked == true, ImagesToggle.IsChecked == true, NamesToggle.IsChecked == true);
         string root = _target.FromApp ? TypedFolder() : _target.Root;
         var items = _target.Items;
         string? error = Matcher.Validate(query) ?? (items != null || Directory.Exists(root) ? null : $"The folder \"{root}\" doesn't exist.");
@@ -519,6 +520,7 @@ public partial class SearchView : UserControl
             Key.R => RegexToggle,
             Key.C => CaseToggle,
             Key.I => ImagesToggle,
+            Key.N => NamesToggle,
             _ => null,
         };
         if (toggle == null) return;

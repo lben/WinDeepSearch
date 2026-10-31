@@ -423,6 +423,26 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task NamesOnlyMatchesFileAndFolderNamesWithoutReadingAnything()
+    {
+        Write(Path.Combine("Invoices 2026", "notes.txt"), "no invoice word in the name");
+        Write("invoice-2041.txt", "needle inside");
+        File.WriteAllBytes(PathOf("broken-invoice.docx"), "not a zip archive"u8.ToArray());
+
+        var engine = new SearchEngine(new SearchQuery("invoice", false, false, true, NamesOnly: true), [_dir], new Settings(), new ImageText(_cache), _cache);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        var results = engine.Results.OrderBy(r => r.Path, StringComparer.Ordinal).ToList();
+        Assert.Equal(["Invoices 2026", "broken-invoice.docx", "invoice-2041.txt"], results.Select(r => Path.GetFileName(r.Path)).Order(StringComparer.Ordinal));
+        Assert.All(results, r => Assert.Empty(r.Hits));
+        Assert.All(results, r => Assert.NotEmpty(r.NameMatches));
+        Assert.True(Single(results, "Invoices 2026").IsFolder);
+        // The damaged file was never opened, so nothing is reported as unreadable.
+        Assert.Empty(engine.Unreadable);
+        Assert.All(results, r => Assert.Equal(0, r.MatchCount));
+    }
+
+    [Fact]
     public async Task SearchingSelectedItemsCoversTheirSubfoldersAndNothingElse()
     {
         Write(Path.Combine("Contracts", "Riverbend", "amendment.txt"), "needle");

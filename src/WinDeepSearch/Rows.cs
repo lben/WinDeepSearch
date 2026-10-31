@@ -42,9 +42,9 @@ public sealed class FileRow : Row
         Sequence = sequence;
         string dir = Path.GetDirectoryName(result.Path) ?? "";
         Folder = dir.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? dir[root.Length..].TrimStart('\\', '/') : dir;
-        string ext = Path.GetExtension(result.Path).TrimStart('.').ToLowerInvariant();
-        Badge = ext.Length is > 0 and <= 4 ? ext.ToUpperInvariant() : "FILE";
-        (BadgeBackground, BadgeForeground) = BadgeColors(ext);
+        string ext = result.IsFolder ? "" : Path.GetExtension(result.Path).TrimStart('.').ToLowerInvariant();
+        Badge = result.IsFolder ? "DIR" : ext.Length is > 0 and <= 4 ? ext.ToUpperInvariant() : "FILE";
+        (BadgeBackground, BadgeForeground) = result.IsFolder ? Pair(0xFFF4D6, 0x7A5200) : BadgeColors(ext);
         if (result.Hits.Count > 0)
         {
             FirstLocation = result.Hits[0].Location;
@@ -62,6 +62,7 @@ public sealed class FileRow : Row
     public Brush BadgeForeground { get; }
     public bool HasHits => Result.Hits.Count > 0;
     public bool HasNoHits => !HasHits;
+    public string NameOnlyNote => Result.IsFolder ? "Folder" : "Matched by name · no text inside to search";
     public string FirstLocation { get; } = "";
     public Marked? FirstLine { get; }
     public string CountText => Result.MatchCount switch
