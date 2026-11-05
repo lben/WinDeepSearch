@@ -100,7 +100,7 @@ public partial class SearchView : UserControl
     CancellationTokenSource? _cts;
     string _root = "";
     string? _single;
-    bool _restart, _showAllItems;
+    bool _restart, _showAllItems, _imagesBeforeNamesOnly;
     int _sequence, _storedHits, _filesWithMatches;
     long _matches;
 
@@ -527,6 +527,24 @@ public partial class SearchView : UserControl
         if (toggle == null) return;
         toggle.IsChecked = toggle.IsChecked != true;
         e.Handled = true;
+    }
+
+    // A names-only search opens no file, so reading pictures means nothing then; turning it off brings back what
+    // the picture toggle was before.
+    void NamesToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        _imagesBeforeNamesOnly = ImagesToggle.IsChecked == true;
+        ImagesToggle.IsChecked = false;
+    }
+
+    void NamesToggle_Unchecked(object sender, RoutedEventArgs e) => ImagesToggle.IsChecked = _imagesBeforeNamesOnly;
+
+    // Asking for pictures while names-only is on means reading the files again.
+    void ImagesToggle_Checked(object sender, RoutedEventArgs e)
+    {
+        if (NamesToggle?.IsChecked != true) return;
+        _imagesBeforeNamesOnly = true;
+        NamesToggle.IsChecked = false;
     }
 
     void JustThisFile_Changed(object sender, RoutedEventArgs e)
