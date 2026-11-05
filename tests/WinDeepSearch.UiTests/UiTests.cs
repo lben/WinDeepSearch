@@ -124,6 +124,32 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void NamesOnlyTurnsTextInImagesOffAndBack()
+    {
+        var window = Launch("--path", _dir);
+        var namesOnly = window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton();
+        var images = window.FindFirstDescendant(cf => cf.ByAutomationId("ImagesToggle")).AsToggleButton();
+        Assert.Equal(ToggleState.On, images.ToggleState);
+
+        // Reading pictures means nothing when no file is opened; turning names-only off brings back what was there.
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.Off, images.ToggleState);
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.On, images.ToggleState);
+
+        images.Toggle();
+        namesOnly.Toggle();
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.Off, images.ToggleState);
+
+        // Asking for pictures while names-only is on means reading the files again.
+        namesOnly.Toggle();
+        images.Toggle();
+        Assert.Equal(ToggleState.Off, namesOnly.ToggleState);
+        Assert.Equal(ToggleState.On, images.ToggleState);
+    }
+
+    [Fact]
     public void StartedFromAFileCanSearchJustThatFile()
     {
         var window = Launch("--path", Path.Combine(_dir, "billing.log"));
