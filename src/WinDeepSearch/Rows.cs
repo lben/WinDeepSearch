@@ -55,7 +55,7 @@ public sealed class FileRow : Row
     public FileResult Result { get; }
     public int Sequence { get; }
     public bool IsNameMatch => Result.NameMatches.Count > 0;
-    public Marked Name => new(Path.GetFileName(Result.Path), Result.NameMatches);
+    public Marked Name => Marked.Of(Path.GetFileName(Result.Path), Result.NameMatches);
     public string Folder { get; }
     public string Badge { get; }
     public Brush BadgeBackground { get; }

@@ -166,6 +166,9 @@ public sealed class SearchTests : IDisposable
         Assert.Equal(1, crossing.MatchCount);
         Assert.Equal([new string('Q', 25)], crossing.Hits.SelectMany(Matched));
         Assert.Equal(boundaryLine, crossing.Hits[0].Context[crossing.Hits[0].HitLine].Number);
+
+        // Positions are counted once as well, the one at that exact point included.
+        Assert.Equal(25, Single(await Search("(?=Q)", regex: true), "big.log").MatchCount);
     }
 
     [Fact]
@@ -440,6 +443,65 @@ public sealed class SearchTests : IDisposable
         // The damaged file was never opened, so nothing is reported as unreadable.
         Assert.Empty(engine.Unreadable);
         Assert.All(results, r => Assert.Equal(0, r.MatchCount));
+    }
+
+    [Fact]
+    public async Task NamesOnlyFindsNamesMatchedByLookaroundsAlone()
+    {
+        // Lookaheads alone match without covering any characters, a common way to require several words in any order.
+        Write("Report 2026 final.pdf", "");
+        Write("report-2025.docx", "");
+
+        var engine = new SearchEngine(new SearchQuery(@"^(?=.*report)(?=.*2026)", true, false, false, NamesOnly: true), [_dir], new Settings(), new ImageText(_cache), _cache);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Report 2026 final.pdf", Path.GetFileName(Assert.Single(engine.Results).Path));
+    }
+
+    [Fact]
+    public async Task ContentSearchesDoNotListNamesMatchedByLookaroundsAlone()
+    {
+        // \b or a lookahead matches a position in almost any name; only the text counts outside names-only searches.
+        Write("Report 2026 final.txt", "nothing relevant");
+        Write("status.txt", "line one\nthe report for 2026 is late\nline three");
+
+        var results = await Search(@"^(?=.*report)(?=.*2026)", regex: true);
+
+        var status = Assert.Single(results);
+        Assert.Equal("status.txt", Path.GetFileName(status.Path));
+        Assert.Empty(status.NameMatches);
+    }
+
+    [Fact]
+    public async Task APositionAtTheEndOfALineIsKeptOnThatLine()
+    {
+        // The line is shown as a match (marked whole), so the position must reach it.
+        Write("status.txt", "line one\nthe report for 2026 is late\nline three");
+
+        var hit = Assert.Single(Assert.Single(await Search(@"(?<=late)$", regex: true)).Hits);
+
+        var line = hit.Context[hit.HitLine];
+        Assert.Equal("the report for 2026 is late", line.Text);
+        Assert.Equal([new TextRange(line.Text.Length, 0)], line.Matches);
+    }
+
+    [Fact]
+    public async Task APositionAtTheEndOfTheLastLineIsFound()
+    {
+        // Lines ending in a full stop: the last one has no line break after it.
+        Write("done.txt", "Done.\nnot done\nAlso done.");
+        Write("lines.txt", "a\nb\n");
+        Write("empty.txt", "");
+
+        var results = await Search(@"(?<=\.)$", regex: true);
+        var done = Single(results, "done.txt");
+        Assert.Equal(2, done.MatchCount);
+        Assert.Equal(["Line 1", "Line 3"], done.Hits.Select(h => h.Location));
+
+        // A final line break doesn't start another line to match, and an empty file has no line at all.
+        var starts = await Search("^", regex: true);
+        Assert.Equal(2, Single(starts, "lines.txt").MatchCount);
+        Assert.DoesNotContain(starts, r => Path.GetFileName(r.Path) == "empty.txt");
     }
 
     [Fact]

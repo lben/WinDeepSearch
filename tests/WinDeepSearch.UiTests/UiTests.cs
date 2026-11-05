@@ -124,6 +124,56 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void LookaroundOnlyMatchesAreFoundByNameAndInText()
+    {
+        // Lookaheads alone match a position, not text: the whole name or line is marked instead (in blue).
+        const string bothWords = @"^(?=.*report)(?=.*2026)";
+        File.WriteAllText(Path.Combine(_dir, "Report 2026 final.txt"), "nothing relevant");
+        File.WriteAllText(Path.Combine(_dir, "status.txt"), "line one\nthe report for 2026 is late\nline three");
+        var window = Launch("--path", _dir);
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
+        Search(window, bothWords, regex: true);
+        Assert.Contains("Report 2026 final.txt · Name only", ResultNames(window));
+        Shot(window, "21-lookaround-name");
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
+        // The status still says Finished from the search before, so wait for this search's row first.
+        Search(window, bothWords, regex: true, waitForFinish: false);
+        Retry.WhileFalse(() => ResultNames(window).Contains("status.txt · 1 match"), TimeSpan.FromSeconds(60), throwOnTimeout: true);
+        WaitForFinish(window);
+        // In a search of the text, a name matched only at a position isn't listed.
+        Assert.DoesNotContain(ResultNames(window), n => n.StartsWith("Report 2026 final.txt"));
+        Shot(window, "22-lookaround-line");
+    }
+
+    [Fact]
+    public void NamesOnlyTurnsTextInImagesOffAndBack()
+    {
+        var window = Launch("--path", _dir);
+        var namesOnly = window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton();
+        var images = window.FindFirstDescendant(cf => cf.ByAutomationId("ImagesToggle")).AsToggleButton();
+        Assert.Equal(ToggleState.On, images.ToggleState);
+
+        // Reading pictures means nothing when no file is opened; turning names-only off brings back what was there.
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.Off, images.ToggleState);
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.On, images.ToggleState);
+
+        images.Toggle();
+        namesOnly.Toggle();
+        namesOnly.Toggle();
+        Assert.Equal(ToggleState.Off, images.ToggleState);
+
+        // Asking for pictures while names-only is on means reading the files again.
+        namesOnly.Toggle();
+        images.Toggle();
+        Assert.Equal(ToggleState.Off, namesOnly.ToggleState);
+        Assert.Equal(ToggleState.On, images.ToggleState);
+    }
+
+    [Fact]
     public void StartedFromAFileCanSearchJustThatFile()
     {
         var window = Launch("--path", Path.Combine(_dir, "billing.log"));

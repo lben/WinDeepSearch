@@ -207,13 +207,13 @@
                           AutomationProperties.AutomationId="RegexToggle" AutomationProperties.Name="Use regular expression" />
             <ToggleButton x:Name="CaseToggle" Grid.Column="2" Content="Aa" Style="{StaticResource SearchToggle}" ToolTip="Match case (Alt+C)"
                           AutomationProperties.AutomationId="CaseToggle" AutomationProperties.Name="Match case" />
-            <ToggleButton x:Name="ImagesToggle" Grid.Column="3" IsChecked="True" Style="{StaticResource SearchToggle}" ToolTip="Search text in images and scanned pages (Alt+I)"
+            <ToggleButton x:Name="ImagesToggle" Grid.Column="3" IsChecked="True" Checked="ImagesToggle_Checked" Style="{StaticResource SearchToggle}" ToolTip="Search text in images and scanned pages (Alt+I)"
                           AutomationProperties.AutomationId="ImagesToggle" AutomationProperties.Name="Search text in images">
                 <Path Data="M1.5,2.5 H14.5 V13.5 H1.5 Z M1.5,11 L5,7.5 L8,10.5 M9.5,5.5 H13 M11.25,5.5 V10" Width="16" Height="16"
                       Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}" StrokeThickness="1.3"
                       StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" />
             </ToggleButton>
-            <ToggleButton x:Name="NamesToggle" Grid.Column="4" Style="{StaticResource SearchToggle}"
+            <ToggleButton x:Name="NamesToggle" Grid.Column="4" Checked="NamesToggle_Checked" Unchecked="NamesToggle_Unchecked" Style="{StaticResource SearchToggle}"
                           ToolTip="Match file and folder names only, without reading the files (Alt+N)"
                           AutomationProperties.AutomationId="NamesToggle" AutomationProperties.Name="Search file names only">
                 <Path Data="M3.5,1.5 H9.5 L12.5,4.5 V14.5 H3.5 Z M9.5,1.5 V4.5 H12.5 M5.5,8 H10.5 M5.5,10.5 H8.5" Width="16" Height="16"
