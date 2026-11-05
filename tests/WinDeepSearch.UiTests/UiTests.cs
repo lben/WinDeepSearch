@@ -124,6 +124,26 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void LookaroundOnlyMatchesAreFoundByNameAndInText()
+    {
+        // Lookaheads alone match a position, not text: the whole name or line is marked instead (in blue).
+        const string bothWords = @"^(?=.*report)(?=.*2026)";
+        File.WriteAllText(Path.Combine(_dir, "Report 2026 final.txt"), "nothing relevant");
+        File.WriteAllText(Path.Combine(_dir, "status.txt"), "line one\nthe report for 2026 is late\nline three");
+        var window = Launch("--path", _dir);
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
+        Search(window, bothWords, regex: true);
+        Assert.Contains("Report 2026 final.txt · Name only", ResultNames(window));
+        Shot(window, "21-lookaround-name");
+
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
+        Search(window, bothWords, regex: true);
+        Assert.Contains("status.txt · 1 match", ResultNames(window));
+        Shot(window, "22-lookaround-line");
+    }
+
+    [Fact]
     public void NamesOnlyTurnsTextInImagesOffAndBack()
     {
         var window = Launch("--path", _dir);
