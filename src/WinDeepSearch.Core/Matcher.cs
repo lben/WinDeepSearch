@@ -13,6 +13,7 @@ public sealed class Matcher
 
     readonly Regex _regex;
     readonly int _contextLines;
+    readonly bool _namesOnly;
 
     public Matcher(SearchQuery query, int contextLines)
     {
@@ -21,6 +22,7 @@ public sealed class Matcher
         // The timeout stops a pathological pattern from hanging a worker; the file is then reported as skipped.
         _regex = new Regex(query.UseRegex ? query.Text : Regex.Escape(query.Text), options, TimeSpan.FromSeconds(5));
         _contextLines = contextLines;
+        _namesOnly = query.NamesOnly;
     }
 
     /// <summary>Returns a message explaining why the query can't run, or null when it can.</summary>
@@ -42,8 +44,15 @@ public sealed class Matcher
     public IReadOnlyList<TextRange> MatchName(string name)
     {
         var ranges = new List<TextRange>();
+        bool matched = false;
         foreach (Match m in _regex.Matches(name))
+        {
+            matched = true;
             if (m.Length > 0) ranges.Add(new TextRange(m.Index, m.Length));
+        }
+        // Lookarounds alone match without covering any text. In a names-only search the name still matches (with
+        // nothing to highlight); in a content search such a pattern (\b, say) would list every file by name.
+        if (matched && ranges.Count == 0 && _namesOnly) ranges.Add(new TextRange(0, 0));
         return ranges;
     }
 

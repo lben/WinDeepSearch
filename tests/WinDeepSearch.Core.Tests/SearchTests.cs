@@ -443,6 +443,19 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task NamesOnlyFindsNamesMatchedByLookaroundsAlone()
+    {
+        // Lookaheads alone match without covering any characters, a common way to require several words in any order.
+        Write("Report 2026 final.pdf", "");
+        Write("report-2025.docx", "");
+
+        var engine = new SearchEngine(new SearchQuery(@"^(?=.*report)(?=.*2026)", true, false, false, NamesOnly: true), [_dir], new Settings(), new ImageText(_cache), _cache);
+        await engine.RunAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("Report 2026 final.pdf", Path.GetFileName(Assert.Single(engine.Results).Path));
+    }
+
+    [Fact]
     public async Task SearchingSelectedItemsCoversTheirSubfoldersAndNothingElse()
     {
         Write(Path.Combine("Contracts", "Riverbend", "amendment.txt"), "needle");
