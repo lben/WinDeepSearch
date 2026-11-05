@@ -456,6 +456,49 @@ public sealed class SearchTests : IDisposable
     }
 
     [Fact]
+    public async Task ContentSearchesDoNotListNamesMatchedByLookaroundsAlone()
+    {
+        // \b or a lookahead matches a position in almost any name; only the text counts outside names-only searches.
+        Write("Report 2026 final.txt", "nothing relevant");
+        Write("status.txt", "line one\nthe report for 2026 is late\nline three");
+
+        var results = await Search(@"^(?=.*report)(?=.*2026)", regex: true);
+
+        var status = Assert.Single(results);
+        Assert.Equal("status.txt", Path.GetFileName(status.Path));
+        Assert.Empty(status.NameMatches);
+    }
+
+    [Fact]
+    public async Task APositionAtTheEndOfALineIsKeptOnThatLine()
+    {
+        // The line is shown as a match (marked whole), so the position must reach it.
+        Write("status.txt", "line one\nthe report for 2026 is late\nline three");
+
+        var hit = Assert.Single(Assert.Single(await Search(@"(?<=late)$", regex: true)).Hits);
+
+        var line = hit.Context[hit.HitLine];
+        Assert.Equal("the report for 2026 is late", line.Text);
+        Assert.Equal([new TextRange(line.Text.Length, 0)], line.Matches);
+    }
+
+    [Fact]
+    public async Task APositionAtTheEndOfTheLastLineIsFound()
+    {
+        // Lines ending in a full stop: the last one has no line break after it.
+        Write("done.txt", "Done.\nnot done\nAlso done.");
+        Write("lines.txt", "a\nb\n");
+
+        var results = await Search(@"(?<=\.)$", regex: true);
+        var done = Single(results, "done.txt");
+        Assert.Equal(2, done.MatchCount);
+        Assert.Equal(["Line 1", "Line 3"], done.Hits.Select(h => h.Location));
+
+        // A final line break doesn't start another line to match.
+        Assert.Equal(2, Single(await Search("^", regex: true), "lines.txt").MatchCount);
+    }
+
+    [Fact]
     public async Task SearchingSelectedItemsCoversTheirSubfoldersAndNothingElse()
     {
         Write(Path.Combine("Contracts", "Riverbend", "amendment.txt"), "needle");

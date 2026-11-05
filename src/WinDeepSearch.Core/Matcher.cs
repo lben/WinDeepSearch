@@ -71,7 +71,10 @@ public sealed class Matcher
         int lineStart = -1, lineEnd = -1, hitLineIndex = 0;
         List<TextRange>? ranges = null;
 
-        for (var m = _regex.Match(text, acceptFrom); m.Success && m.Index < acceptTo; m = m.NextMatch())
+        // The end of a last line with no line break after it is a position on that line too ((?<=\.)$ there); the
+        // end after a final line break starts no line.
+        int acceptLast = acceptTo == text.Length && text.Length > 0 && text[^1] != '\n' ? acceptTo + 1 : acceptTo;
+        for (var m = _regex.Match(text, acceptFrom); m.Success && m.Index < acceptLast; m = m.NextMatch())
         {
             result.MatchCount++;
             lastEnd = m.Index + m.Length;
@@ -160,7 +163,8 @@ public sealed class Matcher
         var result = new List<TextRange>(ranges.Count);
         foreach (var r in ranges)
         {
-            if (r.Start >= to) break;
+            // A position at the very end (a lookbehind before $) still belongs to the line.
+            if (r.Start > to || r.Start == to && r.Length > 0) break;
             int length = Math.Min(r.Length, to - r.Start);
             result.Add(new TextRange(r.Start - from + shift, length));
         }
