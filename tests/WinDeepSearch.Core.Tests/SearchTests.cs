@@ -166,6 +166,9 @@ public sealed class SearchTests : IDisposable
         Assert.Equal(1, crossing.MatchCount);
         Assert.Equal([new string('Q', 25)], crossing.Hits.SelectMany(Matched));
         Assert.Equal(boundaryLine, crossing.Hits[0].Context[crossing.Hits[0].HitLine].Number);
+
+        // Positions are counted once as well, the one at that exact point included.
+        Assert.Equal(25, Single(await Search("(?=Q)", regex: true), "big.log").MatchCount);
     }
 
     [Fact]
@@ -488,14 +491,17 @@ public sealed class SearchTests : IDisposable
         // Lines ending in a full stop: the last one has no line break after it.
         Write("done.txt", "Done.\nnot done\nAlso done.");
         Write("lines.txt", "a\nb\n");
+        Write("empty.txt", "");
 
         var results = await Search(@"(?<=\.)$", regex: true);
         var done = Single(results, "done.txt");
         Assert.Equal(2, done.MatchCount);
         Assert.Equal(["Line 1", "Line 3"], done.Hits.Select(h => h.Location));
 
-        // A final line break doesn't start another line to match.
-        Assert.Equal(2, Single(await Search("^", regex: true), "lines.txt").MatchCount);
+        // A final line break doesn't start another line to match, and an empty file has no line at all.
+        var starts = await Search("^", regex: true);
+        Assert.Equal(2, Single(starts, "lines.txt").MatchCount);
+        Assert.DoesNotContain(starts, r => Path.GetFileName(r.Path) == "empty.txt");
     }
 
     [Fact]
