@@ -138,8 +138,12 @@ public sealed class UiTests : IDisposable
         Shot(window, "21-lookaround-name");
 
         window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
-        Search(window, bothWords, regex: true);
-        Assert.Contains("status.txt · 1 match", ResultNames(window));
+        // The status still says Finished from the search before, so wait for this search's row first.
+        Search(window, bothWords, regex: true, waitForFinish: false);
+        Retry.WhileFalse(() => ResultNames(window).Contains("status.txt · 1 match"), TimeSpan.FromSeconds(60), throwOnTimeout: true);
+        WaitForFinish(window);
+        // In a search of the text, a name matched only at a position isn't listed.
+        Assert.DoesNotContain(ResultNames(window), n => n.StartsWith("Report 2026 final.txt"));
         Shot(window, "22-lookaround-line");
     }
 
