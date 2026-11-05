@@ -36,6 +36,8 @@ typing a pattern.
 **Just looking for a file?** The file button next to those switches to matching file and folder names only. Nothing
 is opened, so it flies through a whole drive, and folders show up in the results too.
 
+![File names only: a folder and a file whose names match, nothing read](docs/images/names-only.png)
+
 **Results you can read at a glance.** Files whose names match come first, then files ranked by how many times they
 match. Each row shows the first matching line. Hover for the lines around it, open the arrow to list every match, and
 click to jump to the file in File Explorer.
