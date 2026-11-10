@@ -573,6 +573,28 @@ public partial class SearchView : UserControl
 
     void Row_MouseLeftButtonUp(object sender, MouseButtonEventArgs e) => Activate(((ListBoxItem)sender).DataContext as Row);
 
+    // Only file and folder rows have a name and path to copy.
+    void Row_ContextMenuOpening(object sender, ContextMenuEventArgs e) => e.Handled = ((ListBoxItem)sender).DataContext is not FileRow;
+
+    void CopyName_Click(object sender, RoutedEventArgs e) => CopyFromRow(sender, nameOnly: true);
+
+    void CopyPath_Click(object sender, RoutedEventArgs e) => CopyFromRow(sender, nameOnly: false);
+
+    void CopyFromRow(object menuItem, bool nameOnly)
+    {
+        if (((MenuItem)menuItem).Parent is not ContextMenu { PlacementTarget: FrameworkElement { DataContext: FileRow row } }) return;
+        string path = row.Result.Path;
+        try
+        {
+            Clipboard.SetText(nameOnly ? Path.GetFileName(path) : path);
+        }
+        catch (ExternalException)
+        {
+            // Another program can hold the clipboard open for a moment.
+            StatusText.Text = "Couldn't copy: another program is using the clipboard. Try again.";
+        }
+    }
+
     void Problem_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         if (((ListBoxItem)sender).DataContext is ProblemRow row) Shell.ShowInExplorer(row.Path);

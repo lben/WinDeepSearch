@@ -109,6 +109,14 @@
                 </StackPanel>
             </Border>
 
+            <Border Style="{StaticResource Card}">
+                <StackPanel>
+                    <TextBlock Text="About" Style="{StaticResource Heading}" />
+                    <TextBlock x:Name="AppVersion" Margin="0,6,0,0" FontWeight="SemiBold" AutomationProperties.AutomationId="AppVersion" />
+                    <TextBlock Margin="0,4,0,0" Style="{StaticResource Caption}" Text="The version installed on this PC. Newer versions are on the GitHub releases page." />
+                </StackPanel>
+            </Border>
+
             <TextBlock Margin="0,12,0,0" Text="Changes are saved automatically." Style="{StaticResource Caption}" FontSize="12" />
         </StackPanel>
     </ScrollViewer>

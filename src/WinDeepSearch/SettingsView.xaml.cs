@@ -11,7 +11,12 @@ public partial class SettingsView : UserControl
     static readonly int[] Limits = [20, 50, 100, 500];
     bool _loading;
 
-    public SettingsView() => InitializeComponent();
+    public SettingsView()
+    {
+        InitializeComponent();
+        // Builds take their version from the release tag.
+        AppVersion.Text = "WinDeepSearch " + typeof(SettingsView).Assembly.GetName().Version!.ToString(3);
+    }
 
     public void Refresh()
     {
