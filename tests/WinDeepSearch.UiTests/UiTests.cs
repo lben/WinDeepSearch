@@ -148,6 +148,30 @@ public sealed class UiTests : IDisposable
     }
 
     [Fact]
+    public void RightClickingAResultCopiesItsNameOrFullPath()
+    {
+        Directory.CreateDirectory(Path.Combine(_dir, "Invoices 2026"));
+        var window = Launch("--path", _dir);
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NamesToggle")).AsToggleButton().Toggle();
+        Search(window, "invoice", regex: false);
+
+        Assert.Equal("Invoice 2041.txt", CopyFromMenu(window, "Invoice 2041.txt", "Copy filename", shot: "23-copy-menu"));
+        Assert.Equal(Path.Combine(_dir, "Invoice 2041.txt"), CopyFromMenu(window, "Invoice 2041.txt", "Copy absolute path"));
+        Assert.Equal(Path.Combine(_dir, "Invoices 2026"), CopyFromMenu(window, "Invoices 2026", "Copy absolute path"));
+    }
+
+    [Fact]
+    public void SettingsShowTheVersionThatIsRunning()
+    {
+        // CI sets WDS_VERSION to the version it builds the app with.
+        string version = Environment.GetEnvironmentVariable("WDS_VERSION") ?? throw new InvalidOperationException("WDS_VERSION isn't set.");
+        var window = Launch();
+        window.FindFirstDescendant(cf => cf.ByAutomationId("NavSettings")).Click();
+        var shown = Retry.WhileNull(() => window.FindFirstDescendant(cf => cf.ByAutomationId("AppVersion")), TimeSpan.FromSeconds(10), throwOnTimeout: true).Result;
+        Assert.Equal($"WinDeepSearch {version}", shown.Name);
+    }
+
+    [Fact]
     public void NamesOnlyTurnsTextInImagesOffAndBack()
     {
         var window = Launch("--path", _dir);
@@ -702,6 +726,22 @@ public sealed class UiTests : IDisposable
         }
         ShotScreen("tooltip-missing");
         throw new Xunit.Sdk.XunitException("No tooltip appeared.");
+    }
+
+    // Picks an option from a result's right-click menu, then reads the clipboard by pasting it into the search box.
+    string CopyFromMenu(Window window, string result, string option, string? shot = null)
+    {
+        Item(window, result).RightClick();
+        // WPF shows the menu in its own popup window, a level below the desktop.
+        var item = WaitForMenuItem(_automation.GetDesktop(), option);
+        if (shot != null) Shot(window, shot);
+        item.AsMenuItem().Invoke();
+        var query = window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox();
+        query.Text = "";
+        query.Focus();
+        Keyboard.TypeSimultaneously(VirtualKeyShort.CONTROL, VirtualKeyShort.KEY_V);
+        Retry.WhileFalse(() => query.Text.Length > 0, TimeSpan.FromSeconds(5));
+        return query.Text;
     }
 
     // A closed classic menu can stay in the tree, hidden; clicking its item before the new menu shows does nothing.
