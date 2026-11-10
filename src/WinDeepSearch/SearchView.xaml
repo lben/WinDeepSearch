@@ -23,6 +23,12 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
+        <!-- One menu for every result row; the row it was opened on is its PlacementTarget. -->
+        <ContextMenu x:Key="RowMenu">
+            <MenuItem Header="Copy _filename" Click="CopyName_Click" />
+            <MenuItem Header="Copy absolute _path" Click="CopyPath_Click" />
+        </ContextMenu>
+
         <!-- Skipped files and files that couldn't be read: the name, why, and a click shows the file in File Explorer. -->
         <Style x:Key="ProblemList" TargetType="ListBox" BasedOn="{StaticResource {x:Type ListBox}}">
             <Setter Property="MaxHeight" Value="150" />
@@ -251,7 +257,9 @@
                             <ListBox.ItemContainerStyle>
                                 <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
                                     <Setter Property="Padding" Value="6,3" />
+                                    <Setter Property="ContextMenu" Value="{StaticResource RowMenu}" />
                                     <EventSetter Event="MouseLeftButtonUp" Handler="Row_MouseLeftButtonUp" />
+                                    <EventSetter Event="ContextMenuOpening" Handler="Row_ContextMenuOpening" />
                                 </Style>
                             </ListBox.ItemContainerStyle>
                         </ListBox>
