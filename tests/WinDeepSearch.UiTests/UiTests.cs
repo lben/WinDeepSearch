@@ -157,7 +157,13 @@ public sealed class UiTests : IDisposable
 
         Assert.Equal("Invoice 2041.txt", CopyFromMenu(window, "Invoice 2041.txt", "Copy filename", shot: "23-copy-menu"));
         Assert.Equal(Path.Combine(_dir, "Invoice 2041.txt"), CopyFromMenu(window, "Invoice 2041.txt", "Copy absolute path"));
-        Assert.Equal(Path.Combine(_dir, "Invoices 2026"), CopyFromMenu(window, "Invoices 2026", "Copy absolute path"));
+
+        // From the keyboard: Shift+F10 on the selected row, then P for "Copy absolute path".
+        Item(window, "Invoices 2026").Focus();
+        Keyboard.TypeSimultaneously(VirtualKeyShort.SHIFT, VirtualKeyShort.F10);
+        WaitForMenuItem(_automation.GetDesktop(), "Copy absolute path");
+        Keyboard.Type(VirtualKeyShort.KEY_P);
+        Assert.Equal(Path.Combine(_dir, "Invoices 2026"), Pasted(window));
     }
 
     [Fact]
@@ -728,7 +734,7 @@ public sealed class UiTests : IDisposable
         throw new Xunit.Sdk.XunitException("No tooltip appeared.");
     }
 
-    // Picks an option from a result's right-click menu, then reads the clipboard by pasting it into the search box.
+    // Picks an option from a result's right-click menu and returns what it put on the clipboard.
     string CopyFromMenu(Window window, string result, string option, string? shot = null)
     {
         Item(window, result).RightClick();
@@ -736,6 +742,12 @@ public sealed class UiTests : IDisposable
         var item = WaitForMenuItem(_automation.GetDesktop(), option);
         if (shot != null) Shot(window, shot);
         item.AsMenuItem().Invoke();
+        return Pasted(window);
+    }
+
+    // Reads the clipboard the way a person would: by pasting it into the search box.
+    static string Pasted(Window window)
+    {
         var query = window.FindFirstDescendant(cf => cf.ByAutomationId("QueryBox")).AsTextBox();
         query.Text = "";
         query.Focus();
